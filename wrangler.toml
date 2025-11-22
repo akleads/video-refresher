@@ -1,0 +1,6 @@
+name = "video-refresher"
+compatibility_date = "2025-11-22"
+
+[site]
+bucket = "."
+
