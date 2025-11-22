@@ -1,0 +1,18 @@
+{
+  "name": "video-refresher",
+  "version": "2.0.0",
+  "main": "index.html",
+  "scripts": {
+    "dev": "python3 server.py",
+    "dev-simple": "python3 -m http.server 8000",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "Browser-based video processing tool using ffmpeg.wasm",
+  "keywords": ["video", "ffmpeg", "webapp", "cloudflare"],
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
