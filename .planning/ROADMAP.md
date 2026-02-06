@@ -29,10 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. COOP/COEP headers configured on Cloudflare Pages for multi-threading
   3. Existing single-video processing continues working with new FFmpeg API
   4. Fallback to single-threaded mode works when SharedArrayBuffer unavailable
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: [To be determined during planning]
+- [ ] 01-01-PLAN.md — FFmpeg 0.12.x initialization with SharedArrayBuffer detection and COOP/COEP header verification
+- [ ] 01-02-PLAN.md — Migrate processVideo() to 0.12.x async API and verify end-to-end processing
 
 ### Phase 2: Memory Management
 **Goal**: Memory leaks eliminated and cleanup infrastructure established for batch stability
@@ -95,11 +96,11 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. FFmpeg.wasm Upgrade | 0/TBD | Not started | - |
+| 1. FFmpeg.wasm Upgrade | 0/2 | Planning complete | - |
 | 2. Memory Management | 0/TBD | Not started | - |
 | 3. Performance Optimization | 0/TBD | Not started | - |
 | 4. Core Batch Generation | 0/TBD | Not started | - |
