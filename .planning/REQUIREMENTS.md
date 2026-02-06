@@ -60,27 +60,27 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BATCH-01 | TBD | Pending |
-| BATCH-02 | TBD | Pending |
-| BATCH-03 | TBD | Pending |
-| BATCH-04 | TBD | Pending |
-| PROG-01 | TBD | Pending |
-| PROG-02 | TBD | Pending |
-| MEM-01 | TBD | Pending |
-| MEM-02 | TBD | Pending |
-| MEM-03 | TBD | Pending |
-| MEM-04 | TBD | Pending |
-| DL-01 | TBD | Pending |
-| DL-02 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
+| PERF-01 | Phase 1 | Pending |
+| MEM-01 | Phase 2 | Pending |
+| MEM-02 | Phase 2 | Pending |
+| MEM-03 | Phase 2 | Pending |
+| MEM-04 | Phase 2 | Pending |
+| PERF-02 | Phase 3 | Pending |
+| PERF-03 | Phase 3 | Pending |
+| BATCH-01 | Phase 4 | Pending |
+| BATCH-02 | Phase 4 | Pending |
+| BATCH-03 | Phase 4 | Pending |
+| BATCH-04 | Phase 4 | Pending |
+| PROG-01 | Phase 4 | Pending |
+| PROG-02 | Phase 4 | Pending |
+| DL-01 | Phase 5 | Pending |
+| DL-02 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 15 total
-- Mapped to phases: 0
-- Unmapped: 15 (pending roadmap creation)
+- Mapped to phases: 15
+- Unmapped: 0 (100% coverage)
 
 ---
 *Requirements defined: 2026-02-06*
-*Last updated: 2026-02-06 after initial definition*
+*Last updated: 2026-02-06 after roadmap creation*
