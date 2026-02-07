@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: FFmpeg.wasm Upgrade** - Modernize FFmpeg.wasm to 0.12.x for multi-threading and better memory management
 - [x] **Phase 2: Memory Management** - Fix memory leaks and establish cleanup infrastructure for batch stability
 - [x] **Phase 3: Performance Optimization** - Optimize encoding settings and buffer reuse for efficient batch processing
-- [ ] **Phase 4: Core Batch Generation** - Build variation count input, unique effect combinations, and batch progress tracking
+- [x] **Phase 4: Core Batch Generation** - Build variation count input, unique effect combinations, and batch progress tracking
 - [ ] **Phase 5: ZIP Download** - Implement bulk download of all variations as single ZIP file
 
 ## Phase Details
@@ -78,8 +78,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Batch logic foundations: unique effect generator, variation filename formatter, and processVideo extension
-- [ ] 04-02-PLAN.md — Batch UI controls, orchestration with cancellation, progress tracking, and end-to-end verification
+- [x] 04-01-PLAN.md — Batch logic foundations: unique effect generator, variation filename formatter, and processVideo extension
+- [x] 04-02-PLAN.md — Batch UI controls, orchestration with cancellation, progress tracking, and end-to-end verification
 
 ### Phase 5: ZIP Download
 **Goal**: All batch variations downloadable as single ZIP file
@@ -105,5 +105,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. FFmpeg.wasm Upgrade | 2/2 | Complete | 2026-02-07 |
 | 2. Memory Management | 2/2 | Complete | 2026-02-06 |
 | 3. Performance Optimization | 1/1 | Complete | 2026-02-06 |
-| 4. Core Batch Generation | 0/2 | Not started | - |
+| 4. Core Batch Generation | 2/2 | Complete | 2026-02-06 |
 | 5. ZIP Download | 0/TBD | Not started | - |

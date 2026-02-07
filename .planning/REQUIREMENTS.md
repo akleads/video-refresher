@@ -7,15 +7,15 @@
 
 ### Batch Generation
 
-- [ ] **BATCH-01**: User can specify number of variations via number input field (1-20 range)
-- [ ] **BATCH-02**: Each variation receives a unique random combination of effects (no duplicate combos within batch)
-- [ ] **BATCH-03**: User can cancel batch processing mid-operation
-- [ ] **BATCH-04**: Processed variations follow consistent naming: `originalname_var1_abc123.mp4`
+- [x] **BATCH-01**: User can specify number of variations via number input field (1-20 range)
+- [x] **BATCH-02**: Each variation receives a unique random combination of effects (no duplicate combos within batch)
+- [x] **BATCH-03**: User can cancel batch processing mid-operation
+- [x] **BATCH-04**: Processed variations follow consistent naming: `originalname_var1_abc123.mp4`
 
 ### Progress & UX
 
-- [ ] **PROG-01**: UI shows per-variation progress: "Processing variation 3/10..." with progress bar
-- [ ] **PROG-02**: First completed variation displayed in existing preview area for quality check
+- [x] **PROG-01**: UI shows per-variation progress: "Processing variation 3/10..." with progress bar
+- [x] **PROG-02**: First completed variation displayed in existing preview area for quality check
 
 ### Memory Management
 
@@ -67,12 +67,12 @@
 | MEM-04 | Phase 2 | Complete |
 | PERF-02 | Phase 3 | Complete |
 | PERF-03 | Phase 3 | Complete |
-| BATCH-01 | Phase 4 | Pending |
-| BATCH-02 | Phase 4 | Pending |
-| BATCH-03 | Phase 4 | Pending |
-| BATCH-04 | Phase 4 | Pending |
-| PROG-01 | Phase 4 | Pending |
-| PROG-02 | Phase 4 | Pending |
+| BATCH-01 | Phase 4 | Complete |
+| BATCH-02 | Phase 4 | Complete |
+| BATCH-03 | Phase 4 | Complete |
+| BATCH-04 | Phase 4 | Complete |
+| PROG-01 | Phase 4 | Complete |
+| PROG-02 | Phase 4 | Complete |
 | DL-01 | Phase 5 | Pending |
 | DL-02 | Phase 5 | Pending |
 
