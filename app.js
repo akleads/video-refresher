@@ -49,6 +49,9 @@ window.addEventListener('beforeunload', () => blobRegistry.revokeAll());
 
 // Track current original video URL for revocation
 let currentOriginalURL = null;
+let currentFile = null;
+let batchCancelled = false;
+let isBatchProcessing = false;
 
 // Initialize FFmpeg
 let ffmpeg = null;
@@ -262,7 +265,52 @@ function initializeUploadHandlers() {
             e.target.value = '';
         }
     });
-    
+
+    // Batch generation controls
+    const generateBtn = document.getElementById('generateBtn');
+    const cancelBtn = document.getElementById('cancelBtn');
+
+    if (generateBtn) {
+        generateBtn.addEventListener('click', async () => {
+            const variationCountInput = document.getElementById('variationCount');
+            const count = parseInt(variationCountInput.value, 10);
+
+            // Validate
+            if (isNaN(count) || count < 1 || count > 20) {
+                alert('Please enter a number between 1 and 20.');
+                return;
+            }
+
+            // Need a file to process
+            if (!currentFile) {
+                alert('Please upload a video first.');
+                return;
+            }
+
+            try {
+                await generateBatch(currentFile, count);
+            } catch (error) {
+                console.error('Batch generation failed:', error);
+                const processingStatus = document.getElementById('processingStatus');
+                if (processingStatus) {
+                    processingStatus.textContent = `Batch error: ${error.message}`;
+                    processingStatus.style.display = 'flex';
+                }
+            }
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            batchCancelled = true;
+            const batchProgressText = document.getElementById('batchProgressText');
+            if (batchProgressText) {
+                batchProgressText.textContent = 'Cancelling... Current variation will complete.';
+            }
+            updateProgress(0, 'Cancelling... Current variation will complete.');
+        });
+    }
+
     console.log('Upload handlers initialized successfully');
 }
 
@@ -402,12 +450,17 @@ async function handleFile(file) {
     }
     const originalURL = blobRegistry.register(file, { type: 'original' });
     currentOriginalURL = originalURL;
+    currentFile = file;
     originalVideo.src = originalURL;
     originalName.textContent = `${file.name} (${fileSizeMB} MB)`;
-    
+
     // Show preview and progress sections
     previewSection.style.display = 'grid';
     progressSection.style.display = 'block';
+
+    // Show batch controls when video is uploaded
+    const batchSection = document.getElementById('batchSection');
+    if (batchSection) batchSection.style.display = 'block';
     processedVideo.style.display = 'none';
     processingStatus.style.display = 'flex';
     processingStatus.textContent = `Processing: ${file.name}...`;
@@ -655,6 +708,121 @@ async function processVideo(file, preloadedBuffer = null, cleanupInput = true, e
         effects: effects,
         size: blob.size
     };
+}
+
+async function generateBatch(file, variationCount) {
+    console.log(`Starting batch generation: ${variationCount} variations`);
+
+    // Validate range
+    if (variationCount < 1 || variationCount > 20) {
+        throw new Error('Variation count must be between 1 and 20');
+    }
+
+    // Reset cancellation
+    batchCancelled = false;
+    isBatchProcessing = true;
+
+    // Show cancel button, disable generate button
+    const cancelBtn = document.getElementById('cancelBtn');
+    const generateBtn = document.getElementById('generateBtn');
+    const batchProgress = document.getElementById('batchProgress');
+    const batchProgressText = document.getElementById('batchProgressText');
+
+    if (cancelBtn) cancelBtn.style.display = 'inline-block';
+    if (generateBtn) generateBtn.disabled = true;
+    if (batchProgress) batchProgress.style.display = 'block';
+
+    // Load buffer once (Phase 3 infrastructure)
+    const buffer = await loadVideoBuffer(file);
+
+    // Write to MEMFS once
+    await loadFFmpeg();
+    await ffmpeg.writeFile('input.mp4', buffer);
+
+    // Generate unique effect combinations
+    const effects = generateUniqueEffects(variationCount);
+
+    const results = [];
+    const batchStartTime = performance.now();
+
+    for (let i = 0; i < variationCount; i++) {
+        // Check cancellation before each variation
+        if (batchCancelled) {
+            console.log(`Batch cancelled after ${i} variations`);
+            break;
+        }
+
+        // Update batch progress text: "Processing variation 3/10..."
+        const current = i + 1;
+        if (batchProgressText) {
+            batchProgressText.textContent = `Processing variation ${current}/${variationCount}...`;
+        }
+        updateProgress(0, `Processing variation ${current}/${variationCount}...`);
+
+        // Process variation
+        const variationIndex = i + 1; // 1-based
+        const isLastVariation = (i === variationCount - 1) || batchCancelled;
+
+        try {
+            const result = await processVideo(
+                file,
+                buffer,                    // preloadedBuffer: reuse buffer
+                isLastVariation,           // cleanupInput: only on last
+                effects[i],                // unique effect parameters
+                variationIndex             // for filename
+            );
+
+            results.push(result);
+
+            // Display first variation immediately in preview
+            if (i === 0) {
+                const processedVideo = document.getElementById('processedVideo');
+                if (processedVideo) {
+                    processedVideo.src = result.url;
+                    processedVideo.style.display = 'block';
+                }
+                const processingStatus = document.getElementById('processingStatus');
+                if (processingStatus) {
+                    processingStatus.textContent = 'First variation ready! Continuing batch...';
+                    processingStatus.style.display = 'flex';
+                }
+            }
+
+        } catch (error) {
+            console.error(`Variation ${variationIndex} failed:`, error);
+            // Continue with next variation, preserve partial results
+        }
+    }
+
+    // Batch complete — cleanup MEMFS if cancelled early (input might still be there)
+    if (batchCancelled && results.length < variationCount) {
+        try {
+            await ffmpeg.deleteFile('input.mp4');
+        } catch (e) {
+            console.warn('Cleanup after cancel:', e);
+        }
+    }
+
+    const batchEndTime = performance.now();
+    const batchTimeSeconds = ((batchEndTime - batchStartTime) / 1000).toFixed(2);
+
+    console.log(`Batch complete: ${results.length}/${variationCount} variations in ${batchTimeSeconds}s`);
+
+    // Update UI to show completion
+    isBatchProcessing = false;
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    if (generateBtn) generateBtn.disabled = false;
+
+    const completionText = batchCancelled
+        ? `Batch cancelled: ${results.length}/${variationCount} variations completed in ${batchTimeSeconds}s`
+        : `Batch complete: ${results.length} variations in ${batchTimeSeconds}s`;
+
+    if (batchProgressText) {
+        batchProgressText.textContent = completionText;
+    }
+    updateProgress(100, completionText);
+
+    return results;
 }
 
 // Update the list of all processed videos
