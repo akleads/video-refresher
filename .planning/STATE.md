@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 7 of 9 (FFmpeg Processing Engine) -- second phase of v2.0 milestone
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 07-01-PLAN.md
+Last activity: 2026-02-07 -- Completed 07-02-PLAN.md
 
-Progress: [========--] 75% (12 of 16 plans complete)
+Progress: [=========-] 81% (13 of 16 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [========--] 75% (12 of 16 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 4
-- Average duration: 3.0 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 in progress with 1 plan)
+- Total plans completed: 5
+- Average duration: 2.5 min
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 in progress with 2 plans)
 
 *Updated after each plan completion*
 
@@ -55,6 +55,9 @@ Recent decisions affecting current work:
 | 07-01-probe | Return 0 from getVideoDuration on failure | 07-01 | Allows encoding without progress tracking |
 | 07-01-stderr | Collect last 20 stderr lines for errors | 07-01 | Debug context without full log storage |
 | 07-01-migrate | try/catch for idempotent schema migrations | 07-01 | SQLite lacks ALTER IF NOT EXISTS |
+| 07-02-partial | Job 'completed' if any file succeeds | 07-02 | Batch processing delivers partial results |
+| 07-02-immediate | setImmediate for rapid back-to-back jobs | 07-02 | Process queue continuously without delay |
+| 07-02-throttle | Progress updates throttled to 2% increments | 07-02 | Balance responsiveness with DB write efficiency |
 
 ### Pending Todos
 
@@ -67,7 +70,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 21:50:54 UTC
-Stopped at: Completed 07-01-PLAN.md
+Last session: 2026-02-07 21:55:17 UTC
+Stopped at: Completed 07-02-PLAN.md
 Resume file: None
-Next: Execute 07-02-PLAN.md (processor and queue worker)
+Next: Execute 07-03-PLAN.md (recovery and process management)
