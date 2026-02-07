@@ -1,934 +1,1057 @@
-# Architecture Patterns: Batch Browser Video Processing
+# Architecture: Server-Side Multi-Video Processing on Fly.io
 
-**Domain:** Browser-based batch video processing with FFmpeg.wasm
-**Researched:** 2026-02-06
-**Confidence:** MEDIUM (based on existing codebase analysis and FFmpeg.wasm architectural constraints from training data)
+**Project:** Video Refresher v2.0 -- Server-Side Processing Milestone
+**Researched:** 2026-02-07
+**Confidence:** HIGH (verified via Fly.io docs, community examples, Node.js ecosystem research)
 
 ## Executive Summary
 
-Adding batch variation generation (5-20 variations from one upload) to the existing sequential video processing app requires architectural changes to handle N-to-N data flow, memory management, and performance optimization. The core challenge is balancing browser memory constraints (~100-200MB) with the need to process multiple variations efficiently.
+This architecture replaces browser-based FFmpeg.wasm processing with a Node.js + native FFmpeg backend on Fly.io, while keeping the existing Cloudflare Pages frontend. The system becomes a two-tier architecture: a static frontend that uploads videos and polls for results, and a Fly.io backend that runs FFmpeg natively in Docker. This eliminates the 100MB browser memory constraint, removes SharedArrayBuffer/COOP/COEP header headaches, and enables fire-and-forget processing (close tab, return later for results).
 
-**Key architectural decision:** Keep single FFmpeg instance with enhanced queue system rather than parallel Web Workers due to FFmpeg.wasm memory limitations and SharedArrayBuffer constraints.
+The key architectural decisions are:
+1. **Keep the frontend on Cloudflare Pages** -- it already works, costs nothing, and only needs API integration code added to app.js
+2. **Single Fly.io Machine with a Fly Volume** -- no horizontal scaling needed for a personal tool; SQLite on the volume handles job tracking; processed files stored on the same volume
+3. **Polling over SSE/WebSockets** -- simpler to implement, works with Fly Proxy autostop, and supports the fire-and-forget use case natively
+4. **Custom SQLite-based job queue** -- no Redis dependency, no BullMQ complexity; better-sqlite3 is synchronous and perfect for a single-machine setup
+5. **Shared password auth via bearer token** -- simple, sufficient for personal/small-team use
 
-**Critical constraint:** Browser memory limits mean input file must be read once and reused across all variations, not re-read N times.
+## Current vs. New Architecture
 
-## Recommended Architecture
-
-### Overall Structure
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Main Thread (UI)                        │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐│
-│  │ Upload Handler │  │  Batch Config  │  │   Download     ││
-│  │  (1 file → N)  │  │  (N spinner)   │  │   Manager      ││
-│  └───────┬────────┘  └────────────────┘  └────────────────┘│
-│          │                                                   │
-│          ▼                                                   │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │          Variation Generation Controller             │  │
-│  │  - Input file buffer (read once, reuse N times)      │  │
-│  │  - Random effect generator (unique per variation)    │  │
-│  │  - Batch progress aggregator                         │  │
-│  └─────────────────────┬────────────────────────────────┘  │
-│                        │                                    │
-│                        ▼                                    │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │          FFmpeg Processing Queue                     │  │
-│  │  - Enhanced sequential queue (existing)              │  │
-│  │  - Per-variation FFmpeg commands                     │  │
-│  │  - Memory cleanup after each variation               │  │
-│  └─────────────────────┬────────────────────────────────┘  │
-│                        │                                    │
-│                        ▼                                    │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │      FFmpeg.wasm Instance (Singleton, existing)      │  │
-│  │  - Virtual FS operations                             │  │
-│  │  - Video encoding                                    │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                        │                                    │
-│                        ▼                                    │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │         Variation Collection & ZIP Manager           │  │
-│  │  - Blob accumulator (memory-aware)                   │  │
-│  │  - JSZip integration                                 │  │
-│  │  - Bulk download trigger                             │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Why Not Web Workers?
-
-**Decision:** Do NOT use Web Workers for parallel FFmpeg instances.
-
-**Rationale:**
-1. **Memory multiplier:** Each FFmpeg instance requires 20-50MB base memory. N workers × (20MB + input file + intermediate buffers) quickly exceeds browser limits
-2. **SharedArrayBuffer constraint:** FFmpeg.wasm requires SharedArrayBuffer with COOP/COEP headers. Multiple workers share same memory space, causing contention
-3. **FFmpeg.wasm limitation:** Not designed for parallel instances in browser context. Single instance with sequential processing is the supported pattern
-4. **Existing proven pattern:** Current app uses single instance successfully. Leverage that investment
-
-**Alternative considered:** Web Worker for UI responsiveness (move FFmpeg off main thread). Rejected because:
-- FFmpeg.wasm 0.11.6 has known Worker mode issues (see existing codebase comment: "Using older version 0.11.6 which doesn't have worker CORS issues")
-- Adding Worker complexity for unproven benefit given sequential processing requirement
-
-## Component Boundaries
-
-### Component 1: Batch Configuration Interface
-**Responsibility:** Capture user intent for batch generation
-**Communicates with:** Upload Handler, Variation Generation Controller
-**State:**
-- Number of variations (default: 5, range: 1-20)
-- Effect randomization seed (optional for reproducibility)
-
-**Interface:**
-```javascript
-// Input
-{
-  variationCount: number,      // 1-20
-  effectRandomness: 'high' | 'medium' | 'low'  // How different variations are
-}
-
-// Output to controller
-BatchConfig {
-  count: number,
-  effects: EffectConfig[]  // Pre-generated array of N unique effect combinations
-}
-```
-
-**Build dependency:** None (UI-only component, can be built first)
-
----
-
-### Component 2: Variation Generation Controller
-**Responsibility:** Orchestrate creation of N variations from single input
-**Communicates with:** Batch Config Interface, FFmpeg Processing Queue, Upload Handler, ZIP Manager
-**State:**
-- Input file ArrayBuffer (read once, retained in memory)
-- Current variation index (1 to N)
-- Batch progress (aggregate across all variations)
-- Generated variation metadata (name, effects applied, blob reference)
-
-**Interface:**
-```javascript
-// Input
-{
-  file: File,              // Original uploaded file
-  config: BatchConfig      // From Batch Configuration Interface
-}
-
-// Methods
-async generateVariations(file, config): Promise<Variation[]>
-async generateSingleVariation(buffer, effectConfig, index): Promise<Variation>
-getBatchProgress(): { current: number, total: number, percent: number }
-
-// Output
-Variation {
-  id: string,              // unique identifier
-  name: string,            // e.g., "video_var001.mp4"
-  blob: Blob,              // processed video
-  blobURL: string,         // for preview
-  effectsApplied: string[],// list of effects
-  fileSize: number,
-  processingTime: number   // milliseconds
-}
-```
-
-**Memory management critical:**
-- Read `file.arrayBuffer()` ONCE at batch start
-- Store buffer in controller scope
-- Pass buffer reference to each variation (no re-read)
-- Release buffer after all N variations complete
-- Release individual blob URLs after ZIP creation OR on user-triggered clear
-
-**Build dependency:** Requires existing FFmpeg queue infrastructure (Component 3)
-
----
-
-### Component 3: Enhanced FFmpeg Processing Queue
-**Responsibility:** Process variations sequentially through single FFmpeg instance
-**Communicates with:** Variation Generation Controller, FFmpeg.wasm Instance, Progress UI
-**State:**
-- Queue of pending variations (VariationTask[])
-- Current processing task
-- Processing flag (boolean, existing)
-
-**Interface:**
-```javascript
-// Input
-VariationTask {
-  inputBuffer: ArrayBuffer,     // Reused across all tasks
-  outputFileName: string,
-  ffmpegCommand: string[],      // FFmpeg args for this variation
-  effectConfig: EffectConfig,
-  onProgress: (percent) => void,
-  onComplete: (blob) => void,
-  onError: (error) => void
-}
-
-// Methods (extends existing queue)
-async enqueueVariation(task: VariationTask): void
-async processVariation(task: VariationTask): Promise<Blob>
-cleanupVariation(): void  // Enhanced cleanup
-```
-
-**Enhancement over existing:**
-- **Existing:** Reads each file from File API per processing
-- **New:** Accepts pre-read ArrayBuffer, writes to FFmpeg FS, processes, cleans up
-- **Existing:** `processedVideos` array grows indefinitely
-- **New:** Variations stored in batch-specific collection, cleared after ZIP download
-
-**Build dependency:** Extends existing queue (lines 172-196 in app.js)
-
----
-
-### Component 4: Random Effect Generator
-**Responsibility:** Generate unique FFmpeg command variations
-**Communicates with:** Variation Generation Controller
-**State:** None (pure function, stateless)
-
-**Interface:**
-```javascript
-// Input
-{
-  variationIndex: number,     // 0 to N-1
-  randomnessSeed: number,     // For reproducibility
-  effectIntensity: 'high' | 'medium' | 'low'
-}
-
-// Output
-EffectConfig {
-  rotation: number,           // Degrees: -5 to +5
-  brightness: number,         // -0.05 to +0.05
-  contrast: number,           // 0.95 to 1.05
-  saturation: number,         // 0.95 to 1.05
-  frameRate: number,          // 29.5 to 30.5
-  zoom: number,               // 1.0 to 1.02 (subtle)
-  mirror: boolean,            // true/false (50% chance)
-  noise: number               // 0 to 3 (atadenoise strength)
-}
-
-// Method
-generateEffectConfig(index, seed, intensity): EffectConfig
-effectConfigToFFmpegArgs(config): string[]  // Converts to -vf filter chain
-```
-
-**Example FFmpeg command output:**
-```bash
--vf "rotate=0.00349,eq=brightness=0.01:contrast=1.01:saturation=1.01,zoompan=z='min(zoom+0.0002,1.02)':d=1,atadenoise=0a=1,hflip"
-```
-
-**Build dependency:** None (pure utility, can be built first)
-
----
-
-### Component 5: ZIP Download Manager
-**Responsibility:** Aggregate N variations into single ZIP download
-**Communicates with:** Variation Generation Controller, Download UI
-**State:**
-- Variations to bundle (Variation[])
-- ZIP generation progress
-
-**Interface:**
-```javascript
-// Input
-{
-  variations: Variation[],
-  zipFileName: string  // e.g., "refreshed_variations_20260206.zip"
-}
-
-// Methods
-async createZIP(variations): Promise<Blob>
-downloadZIP(zipBlob, fileName): void
-```
-
-**Implementation approach:**
-- Use **JSZip** library (35KB gzipped, well-maintained)
-- Stream variations into ZIP in memory (avoid re-reading blobs)
-- Trigger download via `<a>` element with blob URL
-
-**Memory consideration:**
-- ZIP creation duplicates memory temporarily (variations + ZIP blob)
-- For 10 variations × 5MB each = 50MB input → ~50MB ZIP
-- Peak memory: ~100MB during ZIP creation
-- Mitigation: Release variation blob URLs immediately after ZIP creation
-
-**Build dependency:** Requires Component 2 (Variation Generation Controller) to provide variations array
-
----
-
-### Component 6: Memory Manager (Cross-cutting)
-**Responsibility:** Prevent memory leaks and manage browser memory constraints
-**Communicates with:** All components
-**State:**
-- Active blob URL registry (Map<string, string>)
-- Memory usage estimates
-
-**Interface:**
-```javascript
-// Methods
-registerBlobURL(url: string, context: string): void
-revokeBlobURL(url: string): void
-revokeAllBlobURLs(context: string): void
-estimateMemoryUsage(): { used: number, available: number, safe: boolean }
-```
-
-**Hooks into:**
-- **After single variation complete:** Revoke preview blob URL if not needed
-- **After ZIP creation:** Revoke all variation blob URLs
-- **Before new batch start:** Check estimated memory, warn user if unsafe
-- **On page unload:** Revoke all registered URLs
-
-**Build dependency:** Core infrastructure, build early (after queue enhancement)
-
----
-
-### Component 7: Batch Progress Aggregator
-**Responsibility:** Combine per-variation progress into overall batch progress
-**Communicates with:** Variation Generation Controller, Progress UI
-**State:**
-- Per-variation progress (Map<variationId, percent>)
-- Overall batch progress
-
-**Interface:**
-```javascript
-// Input
-{
-  variationId: string,
-  progress: number  // 0-100
-}
-
-// Methods
-updateVariationProgress(id, percent): void
-getOverallProgress(): { current: number, total: number, percent: number, message: string }
-
-// Output
-{
-  current: 3,                    // Variations completed
-  total: 10,                     // Total variations
-  percent: 25,                   // Overall progress (variation 3 at 50% = 25% overall)
-  message: "Processing variation 3 of 10... 50%"
-}
-```
-
-**Build dependency:** After Component 2 (Variation Generation Controller)
-
-## Data Flow: One Input → N Outputs
-
-### Batch Generation Flow
+### Current: All Client-Side
 
 ```
-1. User uploads file + specifies N variations (e.g., 10)
-   ↓
-2. Batch Config Interface: Generate N unique EffectConfig objects
-   ↓
-3. Variation Generation Controller:
-   - Read file.arrayBuffer() ONCE
-   - Store buffer in memory
-   ↓
-4. For i = 1 to N:
-   ↓
-   4a. Generate FFmpeg command from EffectConfig[i]
-   ↓
-   4b. Enqueue VariationTask:
-       - inputBuffer: [shared ArrayBuffer reference]
-       - outputFileName: "video_var{i:03d}.mp4"
-       - ffmpegCommand: [effect-specific args]
-   ↓
-   4c. FFmpeg Processing Queue:
-       - Write inputBuffer to FFmpeg FS as "input.mp4"
-       - Execute FFmpeg with variation-specific command
-       - Read output from FFmpeg FS
-       - Create Blob
-       - Cleanup FFmpeg FS (unlink input.mp4, output.mp4)
-   ↓
-   4d. Store Variation object:
-       - blob, blobURL, metadata
-   ↓
-   4e. Update batch progress (i/N)
-   ↓
-   4f. Small delay (100ms) before next variation
-   ↓
-5. After N variations complete:
-   ↓
-6. Release shared input buffer from memory
-   ↓
-7. ZIP Download Manager:
-   - Create ZIP from Variation[]
-   - Trigger download
-   ↓
-8. Memory Manager:
-   - Revoke all variation blob URLs
-   - Clear variations array
-   ↓
-9. Ready for next batch
+User Browser
+  |
+  +-- Cloudflare Pages (static files)
+  |     index.html, app.js, styles.css, ffmpeg-worker.js
+  |
+  +-- CDN Dependencies
+  |     @ffmpeg/ffmpeg 0.12.14 (WASM)
+  |     @ffmpeg/core 0.12.10 (WASM binary)
+  |     JSZip 3.10.1
+  |
+  +-- In-Browser Processing
+        FFmpeg.wasm -> encode -> blob URL -> download
 ```
 
-### Memory Lifecycle
+**Problems solved by moving server-side:**
+- 100MB file size limit (browser memory)
+- Slow processing (WASM is 3-10x slower than native FFmpeg)
+- Tab must stay open during processing
+- SharedArrayBuffer/COOP/COEP header complexity
+- Different performance across browsers/devices
+
+### New: Frontend + Backend
 
 ```
-Time →
-
-T0: User uploads file (5MB)
-    Memory: 5MB (File object)
-
-T1: Read file.arrayBuffer()
-    Memory: 10MB (File + ArrayBuffer)
-
-T2: Start variation 1
-    Write to FFmpeg FS → Process → Read output
-    Memory: 10MB (buffer) + 20MB (FFmpeg) + 5MB (output blob) = 35MB
-
-T3: Complete variation 1
-    Cleanup FFmpeg FS
-    Memory: 10MB (buffer) + 5MB (var1 blob) = 15MB
-
-T4: Complete variation 10
-    Memory: 10MB (buffer) + 50MB (10 blobs × 5MB) = 60MB
-
-T5: Create ZIP
-    Memory: 10MB (buffer) + 50MB (blobs) + 50MB (ZIP) = 110MB (peak)
-
-T6: Download triggered
-    Memory: 10MB (buffer) + 50MB (ZIP blob) = 60MB
-    (Variation blobs released)
-
-T7: Cleanup after download
-    Memory: ~1MB (UI state only)
++---------------------------+          +----------------------------------+
+| Cloudflare Pages          |          | Fly.io (single Machine)          |
+| (static frontend)         |          | Docker: Node.js + native FFmpeg  |
+|                           |   HTTPS  |                                  |
+| index.html                | -------> | Express API server               |
+| app.js (modified)         |          |   POST /api/jobs                 |
+| styles.css                |          |   GET  /api/jobs/:id             |
+|                           |          |   GET  /api/jobs/:id/download    |
+|                           |          |   POST /api/auth                 |
+|                           |          |                                  |
+| No more:                  |          | Fly Volume (/data, 1GB)          |
+|   ffmpeg-worker.js        |          |   /data/db/jobs.sqlite           |
+|   FFmpeg.wasm CDN deps    |          |   /data/uploads/                 |
+|   JSZip (server zips now) |          |   /data/output/                  |
++---------------------------+          +----------------------------------+
 ```
 
-**Critical timing:** Peak memory occurs during ZIP creation (T5). For 20 variations × 5MB each = 100MB + 100MB ZIP = 200MB peak. This is at browser memory limit. Mitigation: Warn user if N × avg_file_size exceeds safe threshold (e.g., 150MB total).
+## Component Architecture
 
-## Patterns to Follow
+### Component 1: Express API Server
 
-### Pattern 1: Shared Input Buffer (Memory Optimization)
-**What:** Read uploaded file once, reuse ArrayBuffer across all N variations
-**When:** Batch generation with N > 1
-**Why:** Eliminates N×file_size memory waste; critical for large inputs
+**Responsibility:** HTTP API for upload, job management, and file download
+**Technology:** Express.js (stable, well-documented, Fly.io compatible)
+**Location:** `server/index.js` (entrypoint), `server/routes/`
 
-**Example:**
-```javascript
-async function generateVariations(file, config) {
-  // Read ONCE
-  const inputBuffer = await file.arrayBuffer();
-  const variations = [];
+**Endpoints:**
 
-  for (let i = 0; i < config.count; i++) {
-    // REUSE buffer reference
-    const variation = await processVariation(inputBuffer, config.effects[i], i);
-    variations.push(variation);
+| Method | Path | Purpose | Auth |
+|--------|------|---------|------|
+| `POST` | `/api/auth` | Exchange password for session token | No |
+| `POST` | `/api/jobs` | Upload video(s), create processing job | Yes |
+| `GET` | `/api/jobs` | List all jobs for session | Yes |
+| `GET` | `/api/jobs/:id` | Get job status, progress, results | Yes |
+| `GET` | `/api/jobs/:id/download` | Download single processed file | Yes |
+| `GET` | `/api/jobs/:id/download-all` | Download ZIP of all variations | Yes |
+| `DELETE` | `/api/jobs/:id` | Cancel job / delete results | Yes |
+| `GET` | `/api/health` | Health check (for Fly.io) | No |
 
-    // Small delay to prevent UI freeze
-    await sleep(100);
+**Request/Response patterns:**
+
+```
+POST /api/jobs
+  Content-Type: multipart/form-data
+  Authorization: Bearer <token>
+  Body: { files: [video1.mp4, video2.mp4], variations: 5 }
+
+  Response 201:
+  {
+    "job_id": "abc123",
+    "status": "queued",
+    "files": [
+      { "name": "video1.mp4", "size": 5242880 },
+      { "name": "video2.mp4", "size": 3145728 }
+    ],
+    "variations": 5,
+    "total_outputs": 10,
+    "created_at": "2026-02-07T10:00:00Z"
   }
 
-  // Release after all variations complete
-  inputBuffer = null;  // Allow GC
-
-  return variations;
-}
+GET /api/jobs/:id
+  Response 200:
+  {
+    "job_id": "abc123",
+    "status": "processing",  // queued | processing | complete | failed | cancelled
+    "progress": {
+      "current_file": "video1.mp4",
+      "current_variation": 3,
+      "total_variations": 10,
+      "percent": 45
+    },
+    "results": [
+      { "id": "out1", "name": "video1_var1_a1b2c3.mp4", "size": 4800000, "ready": true },
+      { "id": "out2", "name": "video1_var2_d4e5f6.mp4", "size": 4900000, "ready": true }
+    ],
+    "created_at": "2026-02-07T10:00:00Z",
+    "expires_at": "2026-02-08T10:00:00Z"
+  }
 ```
 
-### Pattern 2: Aggressive Blob URL Cleanup (Memory Safety)
-**What:** Revoke blob URLs immediately when no longer needed
-**When:** After each variation preview dismissed, after ZIP created, on batch clear
-**Why:** Prevents memory leaks that plagued existing codebase (see CONCERNS.md)
+**Build dependency:** None -- this is the foundation
 
-**Example:**
+---
+
+### Component 2: File Upload Handler (Multer)
+
+**Responsibility:** Accept multipart file uploads, stream to disk (not memory)
+**Technology:** Multer with disk storage engine
+**Location:** `server/middleware/upload.js`
+
+**Why disk storage, not memory storage:**
+- Videos can be 500MB+; memory storage would crash the 1GB RAM Machine
+- Disk storage streams directly to Fly Volume, never holding full file in RAM
+- Multer's disk engine writes a temp file, then the job processor moves it
+
+**Configuration:**
+
 ```javascript
-const blobURLRegistry = new Map();
+const multer = require('multer');
 
-function registerBlob(id, blobURL) {
-  blobURLRegistry.set(id, blobURL);
-}
-
-function cleanupBatch(batchId) {
-  // Revoke all URLs for this batch
-  for (const [id, url] of blobURLRegistry.entries()) {
-    if (id.startsWith(batchId)) {
-      URL.revokeObjectURL(url);
-      blobURLRegistry.delete(id);
-    }
+const storage = multer.diskStorage({
+  destination: '/data/uploads/',
+  filename: (req, file, cb) => {
+    const uniqueId = crypto.randomUUID();
+    const ext = path.extname(file.originalname);
+    cb(null, `${uniqueId}${ext}`);
   }
-}
+});
 
-// Hook into batch lifecycle
-window.addEventListener('beforeunload', () => {
-  blobURLRegistry.forEach(url => URL.revokeObjectURL(url));
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 500 * 1024 * 1024, // 500MB per file
+    files: 10                      // max 10 files per request
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('video/')) cb(null, true);
+    else cb(new Error('Only video files allowed'), false);
+  }
 });
 ```
 
-### Pattern 3: Progressive Batch Progress (UX)
-**What:** Show aggregate progress across all variations, not just current
-**When:** User has initiated batch generation
-**Why:** User needs to know overall completion, not just "variation 7 of 10 at 34%"
+**Build dependency:** Requires Component 1 (Express server)
 
-**Example:**
+---
+
+### Component 3: SQLite Job Queue (better-sqlite3)
+
+**Responsibility:** Persist job state, track progress, support fire-and-forget
+**Technology:** better-sqlite3 (synchronous, fastest SQLite for Node.js, no external dependencies)
+**Location:** `server/db.js`, database file at `/data/db/jobs.sqlite`
+
+**Why better-sqlite3 over BullMQ/Redis:**
+- No Redis server needed (saves cost, reduces complexity)
+- SQLite lives on Fly Volume -- survives Machine restarts
+- Synchronous API is perfect for single-Machine, single-process architecture
+- Job state persists across deploys (volume is persistent)
+- better-sqlite3 is the recommended SQLite library for Fly.io Node.js apps
+
+**Schema:**
+
+```sql
+CREATE TABLE IF NOT EXISTS jobs (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL DEFAULT 'queued',    -- queued|processing|complete|failed|cancelled
+  password_hash TEXT NOT NULL,              -- ties job to authenticated session
+  variations_per_file INTEGER NOT NULL DEFAULT 1,
+  progress_current INTEGER DEFAULT 0,
+  progress_total INTEGER DEFAULT 0,
+  error_message TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL                  -- 24h from creation
+);
+
+CREATE TABLE IF NOT EXISTS job_files (
+  id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  original_name TEXT NOT NULL,
+  upload_path TEXT NOT NULL,               -- /data/uploads/<uuid>.mp4
+  file_size INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS job_outputs (
+  id TEXT PRIMARY KEY,
+  job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  job_file_id TEXT NOT NULL REFERENCES job_files(id),
+  output_name TEXT NOT NULL,               -- video1_var1_a1b2c3.mp4
+  output_path TEXT NOT NULL,               -- /data/output/<job_id>/<name>.mp4
+  file_size INTEGER,
+  effects_json TEXT,                       -- JSON of applied effects
+  status TEXT NOT NULL DEFAULT 'pending',  -- pending|processing|complete|failed
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_jobs_status ON jobs(status);
+CREATE INDEX idx_jobs_expires ON jobs(expires_at);
+CREATE INDEX idx_outputs_job ON job_outputs(job_id);
+```
+
+**Job lifecycle:**
+
+```
+1. POST /api/jobs -> INSERT job (status='queued')
+                  -> INSERT job_files (one per uploaded file)
+                  -> INSERT job_outputs (variations_per_file * files count)
+                  -> Emit to in-process queue
+
+2. Worker picks up -> UPDATE job SET status='processing'
+                   -> For each output:
+                        UPDATE job_outputs SET status='processing'
+                        Run FFmpeg
+                        UPDATE job_outputs SET status='complete', file_size=X
+                        UPDATE job SET progress_current = progress_current + 1
+
+3. All done -> UPDATE job SET status='complete'
+4. 24h later -> Cleanup cron deletes files + DB rows
+```
+
+**Build dependency:** None -- can be built in parallel with Component 1
+
+---
+
+### Component 4: FFmpeg Processing Engine
+
+**Responsibility:** Execute native FFmpeg commands for video variations
+**Technology:** Node.js `child_process.spawn()` with native FFmpeg binary
+**Location:** `server/processor.js`
+
+**Why spawn over fluent-ffmpeg:**
+- fluent-ffmpeg was archived (May 2025, confirmed via WebSearch) -- no longer maintained
+- Direct spawn gives full control over FFmpeg arguments
+- Progress parsing from stderr is straightforward
+- No abstraction layer to debug when things go wrong
+- Fewer dependencies
+
+**Processing flow:**
+
 ```javascript
-function calculateBatchProgress(currentIndex, variationProgress, totalCount) {
-  // Completed variations contribute 100% each
-  const completedProgress = currentIndex * 100;
+const { spawn } = require('child_process');
 
-  // Current variation contributes partial progress
-  const currentProgress = variationProgress;
+function processVideo(inputPath, outputPath, effects) {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '-i', inputPath,
+      '-vf', buildFilterChain(effects),
+      '-r', '29.97',
+      '-b:v', '2000k',
+      '-bufsize', '4000k',
+      '-maxrate', '2500k',
+      '-preset', 'medium',        // Native FFmpeg: 'medium' is fast enough
+      '-crf', '23',
+      '-map_metadata', '-1',
+      '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+      '-y',                        // Overwrite output
+      outputPath
+    ];
 
-  // Total possible progress
-  const totalProgress = totalCount * 100;
+    const ffmpeg = spawn('ffmpeg', args);
+    let duration = null;
 
-  // Overall percentage
-  const overallPercent = (completedProgress + currentProgress) / totalProgress * 100;
+    ffmpeg.stderr.on('data', (data) => {
+      const line = data.toString();
 
+      // Parse duration from input info
+      const durMatch = line.match(/Duration: (\d+):(\d+):(\d+\.\d+)/);
+      if (durMatch) {
+        duration = parseFloat(durMatch[1]) * 3600 +
+                   parseFloat(durMatch[2]) * 60 +
+                   parseFloat(durMatch[3]);
+      }
+
+      // Parse current time for progress
+      const timeMatch = line.match(/time=(\d+):(\d+):(\d+\.\d+)/);
+      if (timeMatch && duration) {
+        const current = parseFloat(timeMatch[1]) * 3600 +
+                        parseFloat(timeMatch[2]) * 60 +
+                        parseFloat(timeMatch[3]);
+        const percent = Math.min(100, Math.round((current / duration) * 100));
+        // Update progress in SQLite
+      }
+    });
+
+    ffmpeg.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`FFmpeg exited with code ${code}`));
+    });
+
+    ffmpeg.on('error', reject);
+  });
+}
+```
+
+**Effect generation (carried over from existing app.js logic):**
+
+```javascript
+function buildFilterChain(effects) {
+  return `rotate=${effects.rotation}:fillcolor=black@0,` +
+         `eq=brightness=${effects.brightness}:` +
+         `contrast=${effects.contrast}:` +
+         `saturation=${effects.saturation}`;
+}
+
+function generateEffects() {
   return {
-    percent: Math.round(overallPercent),
-    message: `Processing variation ${currentIndex + 1} of ${totalCount}... ${variationProgress}%`
+    rotation: randomInRange(0.001, 0.01),
+    brightness: randomInRange(-0.05, 0.05),
+    contrast: randomInRange(0.95, 1.05),
+    saturation: randomInRange(0.95, 1.05)
   };
 }
 ```
 
-### Pattern 4: Random Effect Seeding (Reproducibility)
-**What:** Use deterministic randomness for effect generation
-**When:** Generating N unique effect configurations
-**Why:** User can regenerate same batch if desired; easier debugging
+**Key improvement over client-side:**
+- Native FFmpeg `medium` preset produces better quality than WASM `ultrafast`
+- No 100MB memory limit -- process 500MB files on a 1GB Machine (FFmpeg streams, doesn't load entire file)
+- Native FFmpeg is 3-10x faster than WASM for encoding
 
-**Example:**
+**Build dependency:** Requires Component 3 (job queue for progress updates)
+
+---
+
+### Component 5: In-Process Job Worker
+
+**Responsibility:** Process jobs sequentially from the SQLite queue
+**Technology:** Simple setInterval polling loop within the same Node.js process
+**Location:** `server/worker.js`
+
+**Why in-process, not separate worker:**
+- Single Machine, single process is simpler to deploy and debug
+- No IPC needed -- direct access to SQLite via better-sqlite3
+- Fly.io auto-stop works correctly with single process (process.exit on idle)
+- If the job queue grows, can always split later (YAGNI)
+
+**Worker loop:**
+
 ```javascript
-function generateEffectConfig(index, baseSeed = Date.now()) {
-  // Seed RNG with base + index for reproducibility
-  const seed = baseSeed + index;
-  const rng = seededRandom(seed);
-
-  return {
-    rotation: rng(-5, 5) * 0.017453,  // Degrees to radians
-    brightness: rng(-0.05, 0.05),
-    contrast: rng(0.95, 1.05),
-    saturation: rng(0.95, 1.05),
-    frameRate: rng(29.5, 30.5),
-    zoom: rng(1.0, 1.02),
-    mirror: rng(0, 1) > 0.5,
-    noise: Math.floor(rng(0, 3))
-  };
-}
-
-// Simple seeded RNG (not cryptographic)
-function seededRandom(seed) {
-  return function(min, max) {
-    seed = (seed * 9301 + 49297) % 233280;
-    const rnd = seed / 233280;
-    return min + rnd * (max - min);
-  };
-}
-```
-
-### Pattern 5: Memory-Aware Batch Sizing (Safety)
-**What:** Warn or block batch generation if estimated memory exceeds safe threshold
-**When:** User specifies N variations before processing starts
-**Why:** Prevent OOM crashes mid-batch; better to warn upfront
-
-**Example:**
-```javascript
-function validateBatchSize(file, variationCount) {
-  const fileSizeMB = file.size / (1024 * 1024);
-
-  // Estimate peak memory:
-  // - Input buffer: 1×
-  // - Variation blobs: N×
-  // - ZIP blob: N× (during creation)
-  // - FFmpeg overhead: 20MB
-  const estimatedPeakMB = fileSizeMB + (variationCount * fileSizeMB) +
-                          (variationCount * fileSizeMB) + 20;
-
-  const SAFE_LIMIT_MB = 150;  // Conservative browser limit
-
-  if (estimatedPeakMB > SAFE_LIMIT_MB) {
-    return {
-      safe: false,
-      message: `This batch would use ~${Math.round(estimatedPeakMB)}MB peak memory. ` +
-               `Recommended: Reduce variations to ${Math.floor(SAFE_LIMIT_MB / (fileSizeMB * 2))} ` +
-               `or use a smaller input file.`
-    };
+class JobWorker {
+  constructor(db, processor) {
+    this.db = db;
+    this.processor = processor;
+    this.currentJob = null;
+    this.interval = null;
   }
 
-  return { safe: true };
+  start() {
+    this.interval = setInterval(() => this.tick(), 2000);
+  }
+
+  async tick() {
+    if (this.currentJob) return; // Already processing
+
+    // Find next queued job (FIFO)
+    const job = this.db.prepare(
+      `SELECT * FROM jobs WHERE status = 'queued'
+       ORDER BY created_at ASC LIMIT 1`
+    ).get();
+
+    if (!job) return;
+
+    this.currentJob = job.id;
+    try {
+      await this.processJob(job);
+    } catch (err) {
+      this.db.prepare(
+        `UPDATE jobs SET status = 'failed', error_message = ?,
+         updated_at = datetime('now') WHERE id = ?`
+      ).run(err.message, job.id);
+    } finally {
+      this.currentJob = null;
+    }
+  }
+
+  async processJob(job) {
+    this.db.prepare(
+      `UPDATE jobs SET status = 'processing', updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(job.id);
+
+    const files = this.db.prepare(
+      `SELECT * FROM job_files WHERE job_id = ?`
+    ).all(job.id);
+
+    const outputs = this.db.prepare(
+      `SELECT * FROM job_outputs WHERE job_id = ? ORDER BY id`
+    ).all(job.id);
+
+    let completed = 0;
+    for (const output of outputs) {
+      // Check for cancellation
+      const current = this.db.prepare(
+        `SELECT status FROM jobs WHERE id = ?`
+      ).get(job.id);
+      if (current.status === 'cancelled') break;
+
+      const file = files.find(f => f.id === output.job_file_id);
+      const effects = JSON.parse(output.effects_json);
+
+      await this.processor.processVideo(
+        file.upload_path,
+        output.output_path,
+        effects,
+        (percent) => {
+          // Progress callback
+          this.db.prepare(
+            `UPDATE jobs SET progress_current = ?,
+             updated_at = datetime('now') WHERE id = ?`
+          ).run(completed * 100 + percent, job.id);
+        }
+      );
+
+      // Mark output complete
+      const stat = fs.statSync(output.output_path);
+      this.db.prepare(
+        `UPDATE job_outputs SET status = 'complete', file_size = ?
+         WHERE id = ?`
+      ).run(stat.size, output.id);
+
+      completed++;
+      this.db.prepare(
+        `UPDATE jobs SET progress_current = ?,
+         updated_at = datetime('now') WHERE id = ?`
+      ).run(completed * 100, job.id);
+    }
+
+    this.db.prepare(
+      `UPDATE jobs SET status = 'complete', updated_at = datetime('now')
+       WHERE id = ?`
+    ).run(job.id);
+  }
 }
+```
+
+**Build dependency:** Requires Component 3 (SQLite) and Component 4 (FFmpeg processor)
+
+---
+
+### Component 6: Authentication Middleware
+
+**Responsibility:** Shared password auth, session tokens
+**Technology:** Express middleware, crypto for token generation
+**Location:** `server/middleware/auth.js`
+
+**Design: Simple shared password with bearer token**
+
+Why this approach:
+- Single shared password set via `AUTH_PASSWORD` env var on Fly.io
+- No user accounts, no database users table, no OAuth complexity
+- Client sends password, gets back a token valid for 24h
+- Token is a signed HMAC of password + timestamp (no JWT dependency needed)
+
+```javascript
+const crypto = require('crypto');
+
+const AUTH_PASSWORD = process.env.AUTH_PASSWORD;
+const TOKEN_SECRET = process.env.TOKEN_SECRET || crypto.randomBytes(32).toString('hex');
+
+function generateToken() {
+  const timestamp = Date.now().toString();
+  const hmac = crypto.createHmac('sha256', TOKEN_SECRET)
+    .update(timestamp)
+    .digest('hex');
+  return Buffer.from(`${timestamp}:${hmac}`).toString('base64');
+}
+
+function verifyToken(token) {
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf8');
+    const [timestamp, hmac] = decoded.split(':');
+
+    // Check expiry (24h)
+    if (Date.now() - parseInt(timestamp) > 24 * 60 * 60 * 1000) return false;
+
+    // Verify HMAC
+    const expected = crypto.createHmac('sha256', TOKEN_SECRET)
+      .update(timestamp)
+      .digest('hex');
+    return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
+
+// Middleware
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Authorization required' });
+  }
+  const token = authHeader.slice(7);
+  if (!verifyToken(token)) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+  next();
+}
+```
+
+**Build dependency:** Requires Component 1 (Express server)
+
+---
+
+### Component 7: Cleanup Scheduler
+
+**Responsibility:** Delete expired jobs, uploads, and output files
+**Technology:** setInterval cron within Node.js process
+**Location:** `server/cleanup.js`
+
+**Why it matters:**
+- 1GB Fly Volume is the constraint -- must reclaim space
+- 24h expiry prevents unbounded growth
+- Runs every hour, deletes jobs older than 24h
+
+```javascript
+function runCleanup(db) {
+  // Find expired jobs
+  const expired = db.prepare(
+    `SELECT id FROM jobs WHERE expires_at < datetime('now')`
+  ).all();
+
+  for (const job of expired) {
+    // Delete output files
+    const outputs = db.prepare(
+      `SELECT output_path FROM job_outputs WHERE job_id = ?`
+    ).all(job.id);
+    for (const out of outputs) {
+      try { fs.unlinkSync(out.output_path); } catch {}
+    }
+
+    // Delete upload files
+    const files = db.prepare(
+      `SELECT upload_path FROM job_files WHERE job_id = ?`
+    ).all(job.id);
+    for (const file of files) {
+      try { fs.unlinkSync(file.upload_path); } catch {}
+    }
+
+    // Delete output directory
+    try { fs.rmdirSync(`/data/output/${job.id}`); } catch {}
+
+    // Delete DB rows (CASCADE handles job_files and job_outputs)
+    db.prepare(`DELETE FROM jobs WHERE id = ?`).run(job.id);
+  }
+
+  console.log(`Cleanup: removed ${expired.length} expired jobs`);
+}
+
+// Run every hour
+setInterval(() => runCleanup(db), 60 * 60 * 1000);
+```
+
+**Build dependency:** Requires Component 3 (SQLite)
+
+---
+
+### Component 8: Modified Frontend (app.js)
+
+**Responsibility:** Replace FFmpeg.wasm processing with API calls to backend
+**Technology:** Fetch API, FormData for uploads
+**Location:** Existing `app.js` (modified), existing `index.html` (modified)
+
+**What stays:**
+- Upload UI (drag-drop, file selection) -- keep as-is
+- Variation count input -- keep as-is
+- Progress bar UI -- keep as-is
+- Processed videos grid -- keep as-is
+- Download buttons -- redirect to server download URLs
+
+**What gets removed:**
+- FFmpeg.wasm loading and initialization (lines 1-173)
+- In-browser processVideo function (lines 541-716)
+- In-browser generateBatch function (lines 718-831)
+- ffmpeg-worker.js (entire file)
+- JSZip dependency (server creates ZIPs now)
+- BlobURLRegistry (no more blob URLs for processed videos)
+- SharedArrayBuffer detection (no longer needed)
+
+**What gets added:**
+- Login screen (password input -> POST /api/auth -> store token)
+- Upload via FormData to POST /api/jobs
+- Polling loop: GET /api/jobs/:id every 2 seconds while status != complete
+- Download links pointing to /api/jobs/:id/download and /api/jobs/:id/download-all
+- Job listing (GET /api/jobs to show all active/completed jobs)
+
+**Frontend flow:**
+
+```
+1. Login:      Password -> POST /api/auth -> store Bearer token in sessionStorage
+2. Upload:     Files + variation count -> POST /api/jobs (multipart)
+3. Poll:       setInterval -> GET /api/jobs/:id -> update progress bar
+4. Complete:   Show download buttons -> GET /api/jobs/:id/download-all
+5. Close tab:  No problem -- job continues on server
+6. Return:     GET /api/jobs -> see all jobs -> download results
+```
+
+**Estimated size reduction:** app.js goes from ~1001 LOC to ~400 LOC (remove all FFmpeg logic, add API client logic)
+
+**Build dependency:** Requires Component 1 (API endpoints) to be defined first
+
+## Data Flow
+
+### Upload and Processing Flow
+
+```
+Browser                          Fly.io Backend
+  |                                    |
+  |-- POST /api/jobs ----------------->|
+  |   (multipart: video files)         |
+  |                                    |-- Multer streams to /data/uploads/
+  |                                    |-- INSERT jobs, job_files, job_outputs
+  |                                    |-- Return job_id
+  |<-- 201 { job_id: "abc123" } -------|
+  |                                    |
+  |                                    |-- Worker picks up job
+  |                                    |-- For each file x variation:
+  |                                    |     spawn ffmpeg
+  |-- GET /api/jobs/abc123 ----------->|     /data/uploads/X -> /data/output/abc123/Y
+  |<-- { status: processing, 45% } ----|     UPDATE progress in SQLite
+  |                                    |
+  |-- GET /api/jobs/abc123 ----------->|
+  |<-- { status: complete, results } --|
+  |                                    |
+  |-- GET /api/jobs/abc123/download-all|
+  |<-- ZIP stream (/data/output/...) --|  (archiver library streams ZIP)
+  |                                    |
+  |                              [24h later]
+  |                                    |-- Cleanup: delete files + DB rows
+```
+
+### File System Layout on Fly Volume
+
+```
+/data/                          # Fly Volume mount point
+  db/
+    jobs.sqlite                 # SQLite database
+  uploads/
+    <uuid>.mp4                  # Uploaded originals (deleted after processing or 24h)
+  output/
+    <job_id>/
+      video1_var1_a1b2c3.mp4   # Processed variations
+      video1_var2_d4e5f6.mp4
+      video2_var1_g7h8i9.mp4
+```
+
+### Storage Budget (1GB Volume)
+
+| Item | Estimate | Notes |
+|------|----------|-------|
+| SQLite DB | <1MB | Job metadata only, rows cleaned after 24h |
+| Upload files | 100-500MB | Deleted after job completes or 24h |
+| Output files | 100-500MB | Variations, typically similar size to input |
+| Headroom | 200MB+ | Safety margin |
+
+**Constraint management:**
+- Reject uploads that would exceed 80% volume capacity (check `df` before accepting)
+- Delete upload files immediately after all variations processed (not after 24h)
+- Single concurrent job ensures predictable disk usage
+
+## Deployment Architecture
+
+### Dockerfile
+
+```dockerfile
+FROM node:20-alpine
+
+# Install native FFmpeg
+RUN apk add --no-cache ffmpeg
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json ./
+RUN npm ci --production
+
+# Copy application code
+COPY server/ ./server/
+
+# Create data directories (will be overridden by volume mount)
+RUN mkdir -p /data/db /data/uploads /data/output
+
+EXPOSE 8080
+
+CMD ["node", "server/index.js"]
+```
+
+### fly.toml
+
+```toml
+app = "video-refresher-api"
+primary_region = "iad"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  DATA_DIR = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[mounts]
+  source = "data"
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+```
+
+### Key Fly.io Configuration Details
+
+**Auto-stop behavior:**
+- Machine stops when no HTTP requests for ~5 minutes
+- BUT: Must not stop during active FFmpeg processing
+- Solution: The worker loop keeps the process alive; Fly Proxy sees active connections (polling requests) and won't stop the Machine while a job is processing
+- When idle (no jobs, no polling), Machine stops -- costs nothing
+
+**Costs (verified from Fly.io pricing):**
+- shared-cpu-1x + 1GB RAM: ~$5.70/month at full uptime
+- With auto-stop (personal use, maybe 2h/day active): ~$0.50/month
+- 1GB Volume: $0.15/month
+- **Total estimated: $1-6/month depending on usage**
+
+**Volume persistence:**
+- Volume survives Machine restarts and deploys
+- Volume does NOT replicate across regions (single-region is fine for personal tool)
+- Volume snapshots cost extra as of Jan 2026 -- disable if not needed
+
+### CORS Configuration
+
+Frontend on Cloudflare Pages (e.g., `video-refresher.pages.dev`) needs to call the Fly.io API (e.g., `video-refresher-api.fly.dev`). CORS headers required:
+
+```javascript
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'https://video-refresher.pages.dev',
+    'http://localhost:8000'  // local dev
+  ];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+```
+
+## Patterns to Follow
+
+### Pattern 1: Streaming ZIP Download (Never Buffer Entire ZIP)
+
+**What:** Use `archiver` library to stream ZIP directly to HTTP response
+**Why:** A ZIP of 10 variations at 50MB each = 500MB. Cannot buffer that in 1GB RAM.
+
+```javascript
+const archiver = require('archiver');
+
+app.get('/api/jobs/:id/download-all', requireAuth, (req, res) => {
+  const outputs = db.prepare(
+    `SELECT * FROM job_outputs WHERE job_id = ? AND status = 'complete'`
+  ).all(req.params.id);
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', 'attachment; filename="variations.zip"');
+
+  const archive = archiver('zip', { store: true }); // No compression for video
+  archive.pipe(res);
+
+  for (const out of outputs) {
+    archive.file(out.output_path, { name: out.output_name });
+  }
+
+  archive.finalize();
+});
+```
+
+### Pattern 2: Disk-Based Processing (Never Hold Video in RAM)
+
+**What:** FFmpeg reads from disk, writes to disk. Node.js never touches video bytes.
+**Why:** 1GB Machine RAM. Videos can be 500MB. Must stay on disk.
+
+```
+Input file on disk -> FFmpeg reads from disk -> Output file on disk
+                      (streamed internally)
+Node.js only:
+  - Passes file paths to FFmpeg (strings, not buffers)
+  - Reads/writes SQLite metadata (tiny)
+  - Streams ZIP from disk files to HTTP response
+```
+
+### Pattern 3: Polling with Exponential Backoff
+
+**What:** Frontend polls GET /api/jobs/:id, starting at 2s intervals, backing off to 10s
+**Why:** Keeps Fly Machine awake during processing; doesn't waste bandwidth when idle
+
+```javascript
+// Frontend polling
+async function pollJob(jobId) {
+  let interval = 2000; // Start at 2s
+  const maxInterval = 10000;
+
+  while (true) {
+    const res = await fetch(`${API_URL}/api/jobs/${jobId}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const job = await res.json();
+
+    updateProgressUI(job);
+
+    if (job.status === 'complete' || job.status === 'failed') break;
+
+    await sleep(interval);
+    interval = Math.min(interval * 1.2, maxInterval); // Gradual backoff
+  }
+}
+```
+
+### Pattern 4: Graceful Shutdown for Active Jobs
+
+**What:** Handle SIGTERM (Fly.io sends this before stopping Machine) by finishing current FFmpeg process
+**Why:** Don't leave half-processed files; mark job as queued so it resumes on next start
+
+```javascript
+let activeFFmpegProcess = null;
+
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+
+  // Stop accepting new requests
+  server.close();
+
+  // If FFmpeg is running, let it finish (up to 30s)
+  if (activeFFmpegProcess) {
+    console.log('Waiting for active FFmpeg process to complete...');
+    // Fly.io gives ~10s grace period by default
+    // Could kill FFmpeg and mark job as queued for retry
+    activeFFmpegProcess.kill('SIGTERM');
+    db.prepare(
+      `UPDATE jobs SET status = 'queued' WHERE status = 'processing'`
+    ).run();
+  }
+
+  process.exit(0);
+});
 ```
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Parallel FFmpeg Workers
-**What:** Creating multiple FFmpeg instances in Web Workers for parallel processing
-**Why bad:** Each instance uses 20-50MB base memory + input + output buffers. 4 workers × 50MB = 200MB before processing any video. Browser OOM guaranteed.
-**Instead:** Use single FFmpeg instance with sequential queue (existing pattern works)
+### Anti-Pattern 1: Buffering Upload Files in Memory
 
-### Anti-Pattern 2: Re-reading Input File Per Variation
-**What:** Calling `file.arrayBuffer()` inside loop for each variation
-**Why bad:** N variations × file size = wasted memory. 10 variations × 10MB = 100MB wasted just storing duplicate input.
-**Instead:** Read once, pass buffer reference (Pattern 1)
+**What:** Using `multer({ storage: multer.memoryStorage() })`
+**Why bad:** A 500MB video upload would consume 500MB of 1GB RAM, leaving nothing for FFmpeg
+**Instead:** Always use `multer.diskStorage()` with destination on the Fly Volume
 
-### Anti-Pattern 3: Accumulating Variations in Global State
-**What:** Storing all variations in persistent `processedVideos` array (existing anti-pattern)
-**Why bad:** Memory grows indefinitely. After processing 5 batches × 10 variations × 5MB = 250MB that cannot be released without page refresh.
-**Instead:** Batch-scoped state. Clear variations after ZIP download. Provide explicit "Clear batch" button.
+### Anti-Pattern 2: Reading FFmpeg Output into Node.js Buffer
 
-### Anti-Pattern 4: Blocking UI During Batch
-**What:** Synchronous loop processing all N variations without yielding to event loop
-**Why bad:** UI freezes for N×processing_time. User cannot cancel, interact, or monitor. Browser "Page Unresponsive" warning.
-**Instead:** Use async/await with small delays between variations (100ms). Allows UI updates and cancel handling.
+**What:** `fs.readFileSync(outputPath)` before sending to client
+**Why bad:** Loads entire processed video into RAM. With 1GB Machine and 500MB video, this crashes.
+**Instead:** Stream files: `res.sendFile(outputPath)` or `fs.createReadStream(outputPath).pipe(res)`
 
-### Anti-Pattern 5: Creating ZIP in FFmpeg
-**What:** Using FFmpeg to create ZIP or archive of multiple videos
-**Why bad:** FFmpeg is video processing tool, not archiving tool. Adds complexity, larger wasm binary, unpredictable behavior.
-**Instead:** Use dedicated library (JSZip) in JavaScript after videos processed.
+### Anti-Pattern 3: Server-Sent Events with Fly.io Auto-Stop
 
-### Anti-Pattern 6: Hardcoded Effect Values
-**What:** All variations use same effect parameters (e.g., brightness=0.01 for all)
-**Why bad:** Defeats purpose of batch variation. Ad platforms detect duplicates if effects don't vary.
-**Instead:** Random effect generator with seed (Pattern 4)
+**What:** Using SSE for progress updates instead of polling
+**Why bad:** SSE keeps a persistent connection open. Fly Proxy auto-stop considers connections when deciding to stop the Machine. A lingering SSE connection can prevent auto-stop OR (worse) Fly Proxy may close the connection when the Machine is stopped, causing the client to lose the event stream.
+**Instead:** Polling works naturally with auto-stop. When the Machine is stopped, the next poll request wakes it up.
 
-## Scalability Considerations
+### Anti-Pattern 4: Using fluent-ffmpeg
 
-### At 5 Variations (Typical Use Case)
+**What:** Installing fluent-ffmpeg as the FFmpeg wrapper
+**Why bad:** The library was archived on May 22, 2025. It is no longer maintained. Known issues with progress reporting (percent returning NaN for large files) will never be fixed.
+**Instead:** Use `child_process.spawn('ffmpeg', args)` directly. Parse stderr for progress. More code, but full control and no dead dependency.
 
-**Strategy:** Standard sequential processing
-- Input file: 10MB
-- Peak memory: ~60MB (10MB input + 50MB variations)
-- Processing time: 5× single video time (~2-5 minutes for 10MB input)
-- User experience: Acceptable; progress visible
+### Anti-Pattern 5: Multiple Machines / Horizontal Scaling
 
-**Approach:**
-- Use existing queue infrastructure
-- Minimal UI changes (add variation count input)
-- Standard batch progress display
+**What:** Running 2+ Fly.io Machines for "redundancy" or "scaling"
+**Why bad:** Fly Volumes are local to a single Machine. Two Machines cannot share a volume. You'd need network storage (S3, Tigris), which adds latency, complexity, and cost. This is a personal tool, not a SaaS product.
+**Instead:** Single Machine, single volume. If it's slow, upgrade to shared-cpu-2x. Vertical scaling is simpler and cheaper.
 
-### At 10 Variations (Common Use Case)
+## Integration Points with Existing Components
 
-**Strategy:** Memory-aware processing with warnings
-- Input file: 10MB
-- Peak memory: ~120MB (10MB input + 100MB variations + ZIP overhead)
-- Processing time: 10× single video time (~5-10 minutes)
-- User experience: Long but manageable; progress critical
+### What Changes in Existing Files
 
-**Approach:**
-- Add memory validation before batch start
-- Show time estimate: "This will take approximately X minutes"
-- Provide cancel button (new feature needed)
-- Consider streaming ZIP creation (add variations incrementally)
+| File | Change | Scope |
+|------|--------|-------|
+| `app.js` | Major rewrite: remove FFmpeg.wasm, add API client | ~600 lines removed, ~300 added |
+| `index.html` | Add login form, update info text, remove COOP/COEP meta | Minor modifications |
+| `styles.css` | Add login form styles, job list styles | Additive only |
+| `ffmpeg-worker.js` | DELETE entirely | No longer needed |
+| `_headers` | Remove COOP/COEP headers (no longer needed for SharedArrayBuffer) | Simplification |
+| `package.json` | Add server dependencies, update scripts | Major update |
 
-### At 20 Variations (Maximum Supported)
+### What's New
 
-**Strategy:** Aggressive memory management and user warnings
-- Input file: 5MB (must warn on larger files)
-- Peak memory: ~200MB (5MB input + 100MB variations + ZIP)
-- Processing time: 20× single video time (~10-20 minutes)
-- User experience: Edge of acceptable; high risk of OOM
+| File/Directory | Purpose |
+|----------------|---------|
+| `server/index.js` | Express server entrypoint |
+| `server/routes/auth.js` | Authentication routes |
+| `server/routes/jobs.js` | Job CRUD routes |
+| `server/middleware/auth.js` | Bearer token middleware |
+| `server/middleware/upload.js` | Multer configuration |
+| `server/db.js` | SQLite schema + queries |
+| `server/worker.js` | Job processing worker |
+| `server/processor.js` | FFmpeg spawn wrapper |
+| `server/cleanup.js` | Expired job cleanup |
+| `server/effects.js` | Random effect generator (ported from app.js) |
+| `Dockerfile` | Docker image for Fly.io |
+| `fly.toml` | Fly.io app configuration |
+| `.dockerignore` | Exclude frontend files from Docker build |
 
-**Approach:**
-- Hard limit if input file > 5MB
-- Progressive ZIP creation: Add variations to ZIP as completed, release blob immediately
-- Strongly recommend breaking into 2 batches of 10
-- Show memory usage indicator in UI
+### What Stays Unchanged
 
-**Warning message example:**
-```
-⚠️ Processing 20 variations from a 10MB file will use ~200MB memory
-and take approximately 15-20 minutes.
+| File | Reason |
+|------|--------|
+| `styles.css` (mostly) | Visual design stays the same |
+| `wrangler.toml` | Frontend still deploys to Cloudflare Pages |
+| `server.py` | Local dev server (still useful for frontend development) |
 
-Recommended:
-• Reduce to 10 variations for faster processing
-• Or use a smaller input file (< 5MB)
-• Or split into 2 batches
+## Suggested Build Order
 
-Continue anyway? [Yes] [No]
-```
+The build order considers dependencies, testability, and ability to verify each phase independently.
 
-### At 50+ Variations (Out of Scope)
+### Phase 1: Backend Foundation (API + DB + Auth)
 
-**Strategy:** Not supported in browser
-- Peak memory: 500MB+
-- Processing time: 1+ hours
-- User experience: Unacceptable
+Build the server skeleton that can accept requests and store job records, without any FFmpeg processing yet.
 
-**Recommendation:**
-- Hard limit at 20 variations in UI
-- If user needs 50+ variations, recommend:
-  - Process in 5 batches of 10
-  - Or migrate to server-side processing (future consideration)
+**Components:** 1 (Express), 3 (SQLite), 6 (Auth)
+**Deliverable:** Server that accepts uploads, stores in SQLite, returns job status -- FFmpeg processing is stubbed
+**Testable via:** curl commands to all endpoints, verify SQLite contents
+**Why first:** Everything else depends on the API contract being defined and working
 
-## Build Order and Dependencies
+### Phase 2: FFmpeg Processing Engine
 
-### Phase 1: Foundation (No new dependencies)
-**Goal:** Enhance existing queue to support batch processing
+Add actual video processing to the backend, turning the stub into a working processor.
 
-1. **Component 4: Random Effect Generator** (build first, no dependencies)
-   - Pure utility functions
-   - Testable in isolation
-   - Generates FFmpeg command variations
+**Components:** 4 (FFmpeg processor), 5 (Worker)
+**Deliverable:** Jobs submitted via API are actually processed by FFmpeg; progress updates in SQLite
+**Testable via:** Submit job via curl, poll for completion, verify output files exist on volume
+**Why second:** Core value -- the whole point of moving server-side
 
-2. **Component 3: Enhanced FFmpeg Processing Queue** (depends on existing queue)
-   - Accept pre-read ArrayBuffer instead of File
-   - Enhanced cleanup after each variation
-   - Add delay between variations
+### Phase 3: Download and Cleanup
 
-3. **Component 6: Memory Manager** (depends on queue)
-   - Blob URL registry
-   - Revocation hooks
+Add file download endpoints and automatic cleanup of expired data.
 
-**Validation:** Process 3 variations manually, verify memory cleanup
+**Components:** ZIP streaming, download routes, 7 (Cleanup)
+**Deliverable:** Complete backend -- upload, process, download, cleanup lifecycle
+**Testable via:** Full workflow via curl -- upload video, wait for processing, download ZIP, verify cleanup after 24h
 
-### Phase 2: Batch Orchestration (Depends on Phase 1)
+### Phase 4: Frontend Integration
 
-4. **Component 2: Variation Generation Controller** (depends on enhanced queue)
-   - Read file once
-   - Loop through variations
-   - Coordinate queue and memory manager
+Modify the existing app.js to call the backend API instead of FFmpeg.wasm.
 
-5. **Component 7: Batch Progress Aggregator** (depends on controller)
-   - Track per-variation progress
-   - Calculate overall batch progress
+**Components:** 8 (Modified frontend)
+**Deliverable:** Working end-to-end application -- existing UI talks to new backend
+**Testable via:** Full user workflow in browser
 
-6. **Component 1: Batch Configuration Interface** (UI only, can be parallel)
-   - Variation count input (1-20)
-   - Effect randomness selector
+### Phase 5: Deployment and Polish
 
-**Validation:** Generate 5 variations, verify progress accuracy
+Deploy to Fly.io, configure auto-stop, verify fire-and-forget, polish edge cases.
 
-### Phase 3: Download and Completion (Depends on Phase 2)
-
-7. **Component 5: ZIP Download Manager** (depends on controller)
-   - Add JSZip dependency (npm install jszip)
-   - Create ZIP from variations array
-   - Trigger download
-   - Cleanup after download
-
-**Validation:** Generate 5 variations, download ZIP, verify contents
+**Deliverable:** Production-deployed system with auto-stop, volume persistence, graceful shutdown
+**Testable via:** Deploy, process a video, stop Machine, return and download results
 
 ### Dependency Graph
 
 ```
-Component 4 (Random Effects) ──→ Component 3 (Enhanced Queue)
-                                      ↓
-                                 Component 6 (Memory Manager)
-                                      ↓
-                                 Component 2 (Controller)
-                                      ↓
-Component 1 (UI Config) ─────────────┤
-                                      ↓
-                                 Component 7 (Progress)
-                                      ↓
-                                 Component 5 (ZIP Manager)
+Phase 1: API + DB + Auth
+    |
+    v
+Phase 2: FFmpeg Processing
+    |
+    v
+Phase 3: Downloads + Cleanup
+    |
+    v
+Phase 4: Frontend Rewrite
+    |
+    v
+Phase 5: Deploy + Polish
 ```
 
-**Critical path:** Components 4 → 3 → 6 → 2 → 5
+All phases are sequential. Each phase produces a testable artifact.
 
-**Parallel work:** Component 1 (UI) can be built anytime after Component 2 interface is defined
+## Scalability Path (If Needed Later)
 
-## Performance Optimization Strategies
+| Growth Stage | What to Do | Effort |
+|-------------|-----------|--------|
+| Processing too slow | Upgrade VM: shared-cpu-2x or performance-cpu-1x | fly.toml change, <5 min |
+| Disk too small | Extend volume: `fly volumes extend` to 5GB or 10GB | CLI command, <5 min |
+| Need concurrent jobs | Add job priority + limited concurrency (2 FFmpeg processes) | Code change, ~2h |
+| Multiple users | Add real auth (user accounts, JWT, separate job namespaces) | Code change, ~1 day |
+| High volume | Move files to Tigris (S3-compatible on Fly.io), allow multi-Machine | Architecture change, ~1 week |
 
-### Optimization 1: FFmpeg Command Efficiency
-**Goal:** Reduce per-variation processing time by 20-30%
+For a personal tool, the single-Machine architecture will handle the workload for years.
 
-**Approach:**
-- **Current:** `-preset fast` or `-preset veryfast` (existing)
-- **Optimize:** Use `-preset ultrafast` for batch processing
-  - Tradeoff: Lower quality, but variations are meant to be "similar enough" not "perfect"
-  - Speedup: 30-40% faster encoding
-- **Optimize:** Reduce CRF from 22-24 to 25-27 for batch
-  - Tradeoff: Slightly lower quality
-  - Speedup: 15-20% faster
-- **Optimize:** Disable unnecessary filters
-  - Remove `-map_metadata -1` (metadata stripping)
-  - Simplify filter chain if effects are minimal
+## Sources
 
-**Example optimized command:**
-```bash
-ffmpeg -i input.mp4 \
-  -vf "rotate=0.00349,eq=brightness=0.01:contrast=1.01:saturation=1.01" \
-  -r 29.97 \
-  -b:v 1500k \
-  -preset ultrafast \  # Changed from fast
-  -crf 26 \             # Changed from 22-24
-  -threads 4 \
-  -pix_fmt yuv420p \
-  -movflags +faststart \
-  output.mp4
-```
+### HIGH Confidence
+- Existing codebase analysis (app.js, index.html, ffmpeg-worker.js) -- directly examined
+- [Fly.io Volumes overview](https://fly.io/docs/volumes/overview/) -- official docs on volume behavior and limitations
+- [Fly.io Autostop/Autostart](https://fly.io/docs/launch/autostop-autostart/) -- verified auto-stop behavior and configuration
+- [Fly.io fly.toml configuration](https://fly.io/docs/reference/configuration/) -- verified mounts and http_service config
+- [Fly.io Node.js Dockerfile](https://github.com/fly-apps/dockerfile-node) -- official Node.js Dockerfile patterns
+- [Fly.io community: FFmpeg installation](https://community.fly.io/t/install-ffmpeg-in-the-v2/12130) -- confirmed `apk add ffmpeg` approach
+- [Express multer middleware](https://expressjs.com/en/resources/middleware/multer.html) -- official Multer docs
+- [better-sqlite3 GitHub](https://github.com/WiseLibs/better-sqlite3) -- confirmed synchronous API, performance claims
 
-**Impact:** 10-minute batch → 7-minute batch
+### MEDIUM Confidence
+- [Fly.io pricing](https://fly.io/docs/about/pricing/) -- verified shared-cpu-1x + 1GB pricing at ~$5.70/month
+- [fluent-ffmpeg archived](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg) -- confirmed archived May 2025
+- [Fly.io Volumes pricing](https://fly.io/docs/about/pricing/) -- $0.15/GB/month, snapshot charges from Jan 2026
+- [Node.js SSE patterns](https://masteringjs.io/tutorials/express/server-sent-events) -- verified SSE implementation but not tested with Fly Proxy
+- [SQLite job queue patterns](https://jasongorman.uk/writing/sqlite-background-job-system/) -- community pattern, not a library
 
-### Optimization 2: Lazy Blob Creation
-**Goal:** Reduce memory pressure by deferring blob URL creation
-
-**Approach:**
-- Don't create blob URLs for all variations immediately
-- Create blob URL only when:
-  - User clicks preview for that variation
-  - ZIP creation starts (need blob anyway)
-- Store raw `Uint8Array` from FFmpeg FS instead of Blob until needed
-
-**Example:**
-```javascript
-// Store minimal data
-const variation = {
-  id: generateID(),
-  name: `var_${index}.mp4`,
-  data: ffmpeg.FS('readFile', outputFileName),  // Uint8Array
-  blobURL: null,  // Created on-demand
-  metadata: {...}
-};
-
-// Create blob URL lazily
-function getVariationBlobURL(variation) {
-  if (!variation.blobURL) {
-    const blob = new Blob([variation.data.buffer], { type: 'video/mp4' });
-    variation.blobURL = URL.createObjectURL(blob);
-  }
-  return variation.blobURL;
-}
-```
-
-**Impact:** Reduces peak memory by ~20% (no blob URLs until needed)
-
-### Optimization 3: Streaming ZIP Creation
-**Goal:** Reduce peak memory during ZIP creation
-
-**Approach:**
-- **Current (Anti-pattern):** Accumulate all variation blobs → create ZIP → peak 2× memory
-- **Optimized:** Add variations to ZIP progressively as they complete
-- **Library:** JSZip supports `generateAsync({ streamFiles: true })`
-
-**Example:**
-```javascript
-const zip = new JSZip();
-
-for (let i = 0; i < variations.length; i++) {
-  const variation = await processVariation(...);
-
-  // Add to ZIP immediately
-  zip.file(variation.name, variation.blob);
-
-  // Release variation blob URL (not needed for preview)
-  URL.revokeObjectURL(variation.blobURL);
-  variation.blobURL = null;
-  variation.blob = null;  // Allow GC
-}
-
-// Generate ZIP (smaller peak memory, no duplicate variation blobs)
-const zipBlob = await zip.generateAsync({
-  type: 'blob',
-  streamFiles: true  // Stream to reduce memory
-});
-```
-
-**Impact:** Reduces peak memory from 200MB to ~120MB for 20 variations
-
-### Optimization 4: Inter-Variation Delay Tuning
-**Goal:** Balance throughput vs. UI responsiveness
-
-**Approach:**
-- **Current:** 500ms delay between files (app.js line 193)
-- **Batch context:** Reduce to 100ms (faster batch completion)
-- **Rationale:** UI doesn't need to update as frequently during batch; user cares about overall progress
-
-**Example:**
-```javascript
-// After each variation completes
-if (processingQueue.length > 0) {
-  // Shorter delay for batch processing
-  const delay = isBatchMode ? 100 : 500;
-  setTimeout(() => processQueue(), delay);
-}
-```
-
-**Impact:** 10 variations × 400ms saved = 4 seconds total savings (minor but free)
-
-### Optimization 5: FFmpeg Instance Warmup
-**Goal:** Eliminate FFmpeg load time for 2nd+ variations
-
-**Approach:**
-- **Current:** FFmpeg loaded lazily on first video
-- **Optimized:** Load FFmpeg immediately on batch start (before reading file)
-- **Benefit:** First variation doesn't pay FFmpeg load cost (2-5 seconds)
-
-**Example:**
-```javascript
-async function startBatchProcessing(file, config) {
-  // Load FFmpeg in parallel with file reading
-  const [ffmpegInstance, inputBuffer] = await Promise.all([
-    loadFFmpeg(),
-    file.arrayBuffer()
-  ]);
-
-  // FFmpeg already loaded when first variation starts
-  await processVariations(inputBuffer, config);
-}
-```
-
-**Impact:** Saves 2-5 seconds on batch start
-
-## Integration Points with Existing System
-
-### Integration 1: Enhanced Queue (app.js lines 172-196)
-**Change:** Accept ArrayBuffer instead of File
-**Backward compatibility:** Keep existing `handleFile(file)` for single-video mode
-**New function:** `handleVariation(buffer, effectConfig, index)`
-
-### Integration 2: Memory Cleanup (app.js lines 275, 439)
-**Change:** Add URL.revokeObjectURL() calls
-**Locations:**
-- After original video replaced
-- After processed video removed from history
-- After ZIP download
-- On page unload
-
-### Integration 3: Progress UI (app.js lines 59-70)
-**Change:** Add batch progress aggregation
-**New elements:**
-- Overall batch progress bar
-- Per-variation progress (optional, collapsible)
-- Time estimate based on first variation
-
-### Integration 4: Download Button (app.js lines 512-522)
-**Change:** Conditional download behavior
-**Logic:**
-- If single video: Download individual video (existing)
-- If batch: Offer "Download ZIP" + individual downloads
-
-### Integration 5: FFmpeg Command Generation (app.js lines 368-414)
-**Change:** Parameterized filter chain
-**Current:** Hardcoded `-vf "rotate=0.00349,eq=..."`
-**New:** `generateFilterChain(effectConfig): string`
-
-## Open Questions for Phase-Specific Research
-
-1. **JSZip performance:** How does JSZip handle 20× 5MB files in browser? Need to test with real data
-2. **FFmpeg.wasm version upgrade:** Should we upgrade from 0.11.6 to 0.12.x for better memory management? Breaking changes?
-3. **Cancel button implementation:** Can FFmpeg.wasm abort mid-encoding? Or only between variations?
-4. **Streaming ZIP support:** Does JSZip `streamFiles: true` actually reduce peak memory, or just disk writes (N/A in browser)?
-5. **Effect uniqueness validation:** How different do effects need to be for ad platforms? Need domain expert input
-6. **Browser memory API:** Can we use `performance.memory` to detect approaching OOM? (Chrome-only, non-standard)
-
-## Sources and Confidence Assessment
-
-**HIGH confidence:**
-- Existing codebase analysis (direct observation)
-- Single FFmpeg instance pattern (proven in current app)
-- Memory constraints (observed in CONCERNS.md, line 91-98)
-
-**MEDIUM confidence:**
-- FFmpeg.wasm architectural limitations (based on training data, no official docs verified)
-- JSZip streaming behavior (library documentation not verified)
-- Browser memory limits (varies by device, ~100-200MB is anecdotal)
-- Web Worker anti-pattern (based on training knowledge of FFmpeg.wasm 0.11.6 limitations)
-
-**LOW confidence:**
-- Specific performance optimization percentages (estimates, need benchmarking)
-- Memory usage calculations (estimates based on typical file sizes)
-- FFmpeg.wasm 0.12.x improvements (version not verified, may not exist)
-
-**Note:** WebSearch and WebFetch were unavailable during research. All findings based on existing codebase analysis and training data. Recommend verifying:
-1. JSZip streaming API capabilities
-2. FFmpeg.wasm latest version and memory improvements
-3. Browser memory limits across devices (test with BrowserStack)
+### LOW Confidence (Needs Validation)
+- FFmpeg native vs WASM performance claim (3-10x) -- general knowledge, not benchmarked for this specific use case
+- Auto-stop interaction with polling -- should work per docs, but needs testing with actual Fly.io deployment
+- 1GB RAM sufficiency for FFmpeg processing 500MB files -- FFmpeg streams internally, but needs empirical validation
 
 ---
 
-*Architecture research completed: 2026-02-06*
-*Confidence: MEDIUM (codebase analysis HIGH, ecosystem patterns MEDIUM due to unverified external sources)*
+*Architecture research completed: 2026-02-07*
+*Replaces previous client-side batch processing architecture document*

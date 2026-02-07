@@ -1,261 +1,205 @@
 # Project Research Summary
 
-**Project:** Video Creative Variation Tool - Batch Processing Milestone
-**Domain:** Browser-based video processing with FFmpeg.wasm
-**Researched:** 2026-02-06
-**Confidence:** MEDIUM
+**Project:** Video Refresher v2.0 -- Server-Side Migration
+**Domain:** Server-side batch video processing with job queuing on Fly.io
+**Researched:** 2026-02-07
+**Confidence:** HIGH
 
 ## Executive Summary
 
-This project adds batch variation generation capability to an existing video refresher tool. The core challenge is processing 5-20 video variations from a single upload entirely in the browser, creating unique random effect combinations for each variation, and delivering them as a downloadable ZIP file. The recommended approach keeps the existing single FFmpeg.wasm instance architecture with an enhanced sequential queue, avoiding parallel Web Worker patterns that would exceed browser memory limits.
+Video Refresher v2.0 migrates from client-side FFmpeg.wasm processing to a server-side Node.js + native FFmpeg backend on Fly.io, while keeping the static frontend on Cloudflare Pages. This is a well-understood architecture: a REST API accepts multi-video uploads, queues them for sequential processing by native FFmpeg, tracks job state in SQLite on a persistent Fly Volume, and serves results as streaming ZIP downloads. The stack is deliberately minimal -- 7 production dependencies, no build step, no TypeScript, no ORM, no Redis. Every technology choice is validated against npm/official sources with HIGH confidence.
 
-The critical constraint is browser memory (100-200MB budget). Success depends on aggressive memory management: reading the input file once and reusing the buffer across all variations, revoking blob URLs immediately after use, cleaning up FFmpeg's in-memory filesystem between operations, and using streaming ZIP creation. The existing FFmpeg.wasm 0.11.6 version should be upgraded to 0.12.x for multi-threading support, but this requires setting COOP/COEP headers on Cloudflare Pages and must be treated as an isolated upgrade phase.
+The recommended approach is a two-tier architecture: Cloudflare Pages serves the static frontend (existing, free), and a single Fly.io Machine (shared-cpu-2x, 512MB RAM, persistent volume) runs Express 5 + native FFmpeg via `child_process.spawn()`. SQLite via better-sqlite3 serves as both the application database and job queue, eliminating the need for Redis/BullMQ entirely. Processing is sequential (one FFmpeg process at a time) which is correct for a single-machine, sub-10-user deployment. The fire-and-forget UX is achieved through persistent job state in SQLite -- users upload, close their tab, and return later to download results.
 
-Key risk: Memory leaks during batch processing will cause browser crashes. The existing codebase already has known memory leak issues (unreleased blob URLs, accumulated processed videos array). These MUST be fixed before scaling to batch operations. The recommended approach is defensive: validate memory budget before processing, implement centralized blob URL management, add explicit FFmpeg filesystem cleanup, and provide clear cancellation with cleanup hooks.
+The primary risks are infrastructure-level, not code-level. The most dangerous pitfalls are: (1) writing temp files to `/tmp` on Fly.io, which is a RAM disk that will OOM-kill the machine; (2) auto-stop killing the machine mid-processing when users close their browser tab; (3) the 1GB volume being insufficient for realistic batch workloads (peak usage for one batch can hit 1.2GB). All three have straightforward mitigations documented in the research. The storage budget is the decision that needs the most attention -- 1GB is too tight and should be increased to 3GB.
 
 ## Key Findings
 
 ### Recommended Stack
 
-FFmpeg.wasm should be upgraded from 0.11.6 to 0.12.x for multi-threading support (2-3x performance improvement per video), but this requires architectural changes. JSZip 3.10.x+ is the standard choice for creating browser-based ZIP downloads. Web Workers should NOT be used for parallel FFmpeg instances (memory constraints make this impractical), but a single worker for UI responsiveness could be considered post-MVP.
+Seven production dependencies. No build step. No Redis. No ORM. No TypeScript. See [STACK.md](STACK.md) for full rationale.
 
 **Core technologies:**
-- **FFmpeg.wasm 0.12.x** (upgrade from 0.11.6): Multi-threading support via SharedArrayBuffer, better memory management for batch processing
-- **JSZip 3.10.x+**: ZIP creation in browser with streaming support to reduce memory pressure
-- **Native Web Workers API**: Queue management on main thread, potentially move FFmpeg to worker for UI responsiveness (optional)
-- **file-saver 2.0.x**: Simplified download triggering with cross-browser compatibility
+- **Node.js 22 LTS**: Server runtime -- current LTS, built-in fetch/WebSocket/watch, same ecosystem as existing frontend JS
+- **Express 5.x**: HTTP server -- mature file upload ecosystem via Multer, async error handling built-in, 5 REST endpoints
+- **Multer 1.4.x**: File upload -- streams directly to disk (not memory), critical for 100MB+ video files
+- **Native FFmpeg via child_process.spawn**: Video processing -- 10-50x faster than FFmpeg.wasm, fluent-ffmpeg is archived/deprecated (May 2025)
+- **better-sqlite3 12.6.x**: Job tracking + queue -- synchronous API, zero-cost file DB on Fly Volume, no Redis needed
+- **archiver 7.0.x**: ZIP packaging -- streaming to HTTP response, STORE compression for video (no re-compression)
+- **nanoid 5.x**: Job/file IDs -- short, URL-safe, collision-resistant
 
-**Critical requirements:**
-- COOP/COEP headers must be set on Cloudflare Pages for SharedArrayBuffer (required by FFmpeg.wasm 0.12.x)
-- Worker pool pattern is NOT recommended (memory constraints)
-- No compression for video files in ZIP (MP4 is already compressed, DEFLATE wastes time)
+**Infrastructure:**
+- **Fly.io**: shared-cpu-2x, 512MB RAM, 1GB volume (recommend increasing to 3GB), ~$5-8/month
+- **Docker**: node:22-slim + apt-get FFmpeg, single-stage build, ~300-400MB image
+- **Auth**: `crypto.timingSafeEqual` against env var shared password (no bcrypt, no JWT, no user accounts)
+
+**Explicitly rejected:** Redis/BullMQ, TypeScript, Prisma/Drizzle, WebSocket for progress, S3/R2, fluent-ffmpeg, PM2, dotenv.
 
 ### Expected Features
 
-The MVP focuses on core batch functionality with strict memory management. Users expect control over variation count, unique effects per variation, progress indication, and bulk ZIP download. Advanced features like effect intensity control and metadata export can be deferred.
+See [FEATURES.md](FEATURES.md) for full feature landscape, dependency graph, and complexity estimates.
 
-**Must have (table stakes):**
-- Specify variation count (5-20 range with validation)
-- Unique effect combinations per variation (no duplicates within batch)
-- Progress indication per variation ("Processing variation 3/10...")
-- Bulk download as ZIP (using JSZip)
-- Cancel batch operation (stop flag checked between variations)
-- Consistent naming scheme (originalname_var1_abc123.mp4)
-- Memory cleanup between variations (critical for stability)
-- Preview first variation (quality check before download)
+**Must have (table stakes) -- 11 features, ~46-70 hours total:**
+- Multi-video upload (3-10 sources per batch)
+- Server-side FFmpeg processing with per-video error handling
+- Job ID + SQLite persistence with status polling endpoint
+- Fire-and-forget workflow (close tab, return for results)
+- Temporary result storage with 24h expiry + 1GB cap eviction
+- Organized ZIP download (folders per source video)
+- Shared password auth gating all endpoints
+- Upload size validation (reject before queuing)
 
-**Should have (competitive):**
-- Effect intensity control (subtle vs dramatic variations)
-- Export metadata file (JSON manifest of effects applied per variation)
-- Smart effect distribution (ensure batch covers all effect types)
+**Should have (low-complexity differentiators):**
+- SSE progress stream (real-time updates while tab open, polling fallback)
+- Job list page (see all active/completed/expired jobs)
+- Processing time estimates (extrapolate from first video)
+- Metadata JSON manifest in ZIP
 
-**Defer (v2+):**
-- Preview all variations before download (memory-intensive)
-- Guaranteed minimum difference (perceptual hashing, complex)
-- Resume failed batch (requires IndexedDB persistence)
-- Parallel processing (memory constraints make this impractical)
+**Defer to post-MVP:**
+- Resumable upload, job cancellation, retry failed videos, storage usage indicator, webhook notifications
 
 **Explicitly reject:**
-- Manual effect selection per variation (decision fatigue)
-- Server-side processing (constraint: must stay client-side)
-- Individual variation downloads (batch = bulk operation)
-- Variation comparison UI (memory nightmare with 20 videos)
-- Persistent history (session-based is sufficient)
+- Per-user accounts, WebSocket frame streaming, cloud object storage, persistent history, video format conversion, manual effect selection, queue priority, horizontal scaling, video preview/streaming, comparison UI, custom presets
 
 ### Architecture Approach
 
-The architecture extends the existing sequential queue system rather than introducing parallel processing. Input file is read once into an ArrayBuffer and reused across all N variations. Each variation processes sequentially through the single FFmpeg.wasm instance, with explicit cleanup after each operation. A centralized Memory Manager tracks all blob URLs and provides cleanup hooks. ZIP creation happens after all variations complete, with streaming to reduce peak memory usage.
+Two-tier architecture: static Cloudflare Pages frontend talks to a single Fly.io Machine backend over HTTPS REST. See [ARCHITECTURE.md](ARCHITECTURE.md) for component details, data flow diagrams, and build order.
 
-**Major components:**
-1. **Variation Generation Controller** — Orchestrates N-variation batch from single input, manages shared ArrayBuffer, coordinates queue and memory cleanup
-2. **Enhanced FFmpeg Processing Queue** — Extends existing queue to accept pre-read ArrayBuffer instead of File, adds inter-variation cleanup, tracks batch progress
-3. **Random Effect Generator** — Pure utility that generates unique FFmpeg command variations with seeded randomness for reproducibility
-4. **Memory Manager** — Cross-cutting component that tracks blob URLs, provides centralized revocation, monitors memory budget
-5. **ZIP Download Manager** — Aggregates N variations into single ZIP using JSZip with streaming, triggers download, handles cleanup
-6. **Batch Progress Aggregator** — Combines per-variation progress into overall batch progress, provides ETA estimates
+**Major components (8 total):**
+1. **Express API Server** -- 5-8 REST endpoints, foundation for everything
+2. **File Upload Handler (Multer)** -- streams to Fly Volume disk, never memory
+3. **SQLite Job Queue (better-sqlite3)** -- persists job state, enables fire-and-forget
+4. **FFmpeg Processing Engine** -- `child_process.spawn`, progress parsing from stderr
+5. **In-Process Job Worker** -- sequential FIFO processing, polls SQLite every 2s
+6. **Authentication Middleware** -- HMAC bearer tokens, 24h expiry
+7. **Cleanup Scheduler** -- hourly deletion of expired jobs and orphaned files
+8. **Modified Frontend** -- ~400 LOC API client replacing ~1000 LOC FFmpeg.wasm code
 
-**Key architectural decisions:**
-- **Single FFmpeg instance, NOT parallel workers:** Memory constraints (each instance = 20-50MB + video buffers) make parallel processing impractical
-- **Shared input buffer:** Read file.arrayBuffer() once, pass reference to all variations (eliminates N×file_size memory waste)
-- **Aggressive cleanup:** Revoke blob URLs immediately after ZIP creation, delete FFmpeg files between variations, clear batch state after download
-- **Sequential processing with delays:** 100ms delay between variations allows UI updates and GC opportunities
+**Key patterns:** Disk-based processing (Node.js never touches video bytes), streaming ZIP download (never buffer entire ZIP), polling with exponential backoff, graceful SIGTERM shutdown.
+
+**Anti-patterns to avoid:** Memory-buffered uploads, reading FFmpeg output into Node buffers, SSE with Fly.io auto-stop, fluent-ffmpeg, multi-machine deployment.
 
 ### Critical Pitfalls
 
-The research identified 13 pitfalls across three severity levels. The five critical pitfalls all relate to memory management and must be addressed in Phase 1 before implementing batch features.
+See [PITFALLS.md](PITFALLS.md) for all 17 pitfalls with detailed prevention and detection strategies.
 
-1. **Memory exhaustion from unrevoked blob URLs** — Each video creates a blob URL that holds entire file in memory until explicitly revoked. With 20 variations, this causes browser crashes. Prevention: Centralized BlobURLManager with explicit lifecycle management.
+**Top 5 (all CRITICAL severity):**
 
-2. **FFmpeg.wasm file system accumulation** — FFmpeg's in-memory filesystem doesn't auto-cleanup. Files accumulate until crash. Prevention: Explicit deleteFile() calls in finally blocks after each variation.
-
-3. **Synchronous ZIP creation memory spike** — Creating ZIP loads all videos simultaneously into memory (2-3x file sizes). Prevention: Use JSZip with streamFiles: true, revoke blob URLs immediately after adding to ZIP.
-
-4. **FFmpeg.wasm 0.11 → 0.12+ migration breaking changes** — Major API changes, new SharedArrayBuffer requirements, different worker setup. Prevention: Dedicate isolated Phase 0 for upgrade only, test COOP/COEP headers on Cloudflare Pages, have 0.11.6 rollback ready.
-
-5. **Web Worker queue race conditions** — If using workers (optional), message passing creates ordering issues, response mixups, cancellation affects wrong job. Prevention: Job ID tracking with response mapping, mutex for shared FFmpeg instance.
-
-**Moderate pitfalls:**
-- No cancellation cleanup (resources continue consuming CPU/memory)
-- Hardcoded memory limits ignored (browser limits < FFmpeg limits)
-- No incremental progress feedback (users think app froze)
-- Filename collisions in batch processing (need timestamps + unique IDs)
-
-**Minor pitfalls:**
-- No browser compatibility warnings (SharedArrayBuffer requires headers)
-- Global FFmpeg instance conflicts (needs mutex or per-worker instances)
-- Progress bars freeze at 99% (reserve budget for post-processing)
+1. **Fly.io /tmp is a RAM disk** -- Writing uploaded videos to `/tmp` eats RAM and OOM-kills the machine. Always write to the Fly Volume path (`/data/`). Set `TMPDIR=/data/tmp/` in Dockerfile.
+2. **Auto-stop kills machine mid-processing** -- Fire-and-forget means no active HTTP connections, so Fly.io thinks the machine is idle. Mitigate by setting `min_machines_running = 1` or disabling auto-stop entirely (~$2-3/month cost).
+3. **1GB volume is too small** -- One batch (3 sources x 10 variations x 20MB avg) peaks at ~1.28GB counting source + output + working files. Increase volume to 3GB minimum. Stream ZIPs to response (never write to disk).
+4. **Deploy kills in-progress jobs** -- `fly deploy` destroys and recreates the machine. Implement SIGTERM handler that marks jobs as interrupted. Set `kill_timeout = 300`. Check for active jobs before deploying.
+5. **FFmpeg stderr pipe buffer deadlock** -- FFmpeg writes verbose output to stderr. If not consumed, the 64KB pipe buffer fills and FFmpeg blocks forever. Always attach a `stderr.on('data')` handler or set stdio to `'ignore'`.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure prioritizes memory stability before adding batch features. FFmpeg.wasm upgrade should be isolated, and ZIP creation should be deferred until core batch processing is proven stable.
+Based on combined research, the architecture has a clean dependency chain that dictates a 5-phase build order. Each phase produces a testable artifact and addresses specific pitfalls.
 
-### Phase 0: FFmpeg.wasm Upgrade (Optional but Recommended)
-**Rationale:** FFmpeg.wasm 0.12.x provides 2-3x performance improvement and better memory management, but requires architectural changes. Isolating this work prevents entanglement with batch feature implementation.
-**Delivers:** FFmpeg.wasm 0.12.x integration with multi-threading support
-**Addresses:** Performance optimization, better memory handling for batch processing
-**Avoids:** Pitfall #4 (breaking API changes mixed with feature work)
-**Critical requirements:**
-- Configure COOP/COEP headers on Cloudflare Pages (_headers file)
-- Rewrite FFmpeg initialization from createFFmpeg() to new FFmpeg()
-- Update file operations (API changed in 0.12.x)
-- Test SharedArrayBuffer availability with fallback to single-threaded mode
-- Have 0.11.6 rollback plan ready
+### Phase 1: Backend Foundation (API + DB + Auth + Deploy)
 
-**Decision point:** If upgrade is too risky, document decision to stay on 0.11.6 and accept slower performance. This is a valid choice given memory constraints.
+**Rationale:** Everything depends on the API contract and data persistence layer existing first. Auth gates all endpoints. SQLite schema defines the data model for all subsequent phases. Deploying to Fly.io immediately validates the infrastructure (volume, Docker, FFmpeg binary) before writing complex processing logic.
+**Delivers:** Running Express server on Fly.io with SQLite, Multer uploads to volume, bearer token auth, health check endpoint. Jobs can be created and queried but not processed (processing is stubbed).
+**Features addressed:** Shared password auth, multi-video upload, job ID + SQLite tracking, upload size validation
+**Pitfalls to avoid:** /tmp RAM disk trap (Pitfall 1), memory buffering (Pitfall 2), SQLite WAL mode (Pitfall 7), FFmpeg binary not found in Docker (Pitfall 12), HTTPS enforcement (Pitfall 13)
+**Stack elements:** Express 5, Multer, better-sqlite3, nanoid, cors, Dockerfile, fly.toml
 
-### Phase 1: Memory Management Cleanup
-**Rationale:** Existing codebase has known memory leaks (blob URLs, processed videos array). These MUST be fixed before scaling to 20 variations or crashes are guaranteed.
-**Delivers:** Centralized blob URL management, FFmpeg filesystem cleanup, memory budget validation
-**Addresses:** Pitfalls #1 (blob URLs), #2 (FFmpeg FS), #5 (race conditions), #6 (cancellation cleanup), #12 (global instance conflicts)
-**Components implemented:**
-- Memory Manager (blob URL registry, lifecycle tracking)
-- Enhanced cleanup in existing queue (deleteFile() calls in finally blocks)
-- Memory budget estimation (validate before batch start)
-- Cancellation cleanup hooks (stop processing, clean up partial work)
+### Phase 2: FFmpeg Processing Engine
 
-**Success criteria:** Process single video 10 times in succession without memory growth, verified with Chrome DevTools memory profiler.
+**Rationale:** Core value proposition of v2. Once the API skeleton exists and is deployed, add the processing engine that turns uploaded videos into variations. This is the highest-risk phase technically (FFmpeg spawn, progress parsing, error handling per video).
+**Delivers:** Working video processing -- submit a job via API, FFmpeg processes it, output files appear on volume, progress updates written to SQLite.
+**Features addressed:** Server-side FFmpeg processing, error handling per video, variations per batch
+**Pitfalls to avoid:** Pipe buffer deadlock (Pitfall 8), thread oversubscription on shared CPU (Pitfall 6), filter syntax differences native vs wasm (Pitfall 16)
+**Stack elements:** child_process.spawn, native FFmpeg in Docker
 
-### Phase 2: Core Batch Generation
-**Rationale:** With memory foundation solid, add batch orchestration. This phase implements the core value proposition (N variations from single upload) without ZIP download complexity.
-**Delivers:** Variation count input, unique effect combinations, batch progress, individual downloads
-**Addresses:** Table stakes features from FEATURES.md (variation count, unique effects, progress, cancel)
-**Uses:** Enhanced FFmpeg queue (Phase 1), Random Effect Generator (new)
-**Implements:** Variation Generation Controller, Batch Progress Aggregator
-**Components implemented:**
-- Batch Configuration Interface (variation count input, 5-20 range)
-- Variation Generation Controller (shared ArrayBuffer, sequential processing)
-- Random Effect Generator (seeded randomness for reproducibility)
-- Batch Progress Aggregator (per-variation + overall progress)
+### Phase 3: Download, Cleanup, and Job Lifecycle
 
-**Success criteria:** Generate 10 variations, each with unique effects, download individually, verify memory cleanup after batch.
+**Rationale:** Completes the backend lifecycle: upload -> process -> download -> expire. Without cleanup, the volume fills within days. Without download, processing is pointless. This phase makes the backend fully functional and testable end-to-end via curl.
+**Delivers:** Streaming ZIP download, 24h auto-expiry, storage cap enforcement, graceful shutdown on SIGTERM, restart recovery (interrupted jobs re-queued).
+**Features addressed:** Result download (ZIP), temporary storage with eviction, fire-and-forget persistence, per-source-video folders
+**Pitfalls to avoid:** ZIP doubles storage (Pitfall 15), no cleanup daemon (Pitfall 11), auto-stop kills jobs (Pitfall 3), deploy job loss (Pitfall 5), volume undersized (Pitfall 4)
+**Stack elements:** archiver, node-cron
 
-### Phase 3: ZIP Download
-**Rationale:** Bulk download is essential for good UX with 10+ variations, but ZIP creation has memory risks. Defer until core batch processing is proven stable.
-**Delivers:** ZIP creation with JSZip, bulk download trigger, streaming to reduce memory
-**Addresses:** Table stakes feature (bulk download) while avoiding Pitfall #3 (memory spike)
-**Uses:** JSZip 3.10.x+, file-saver 2.0.x
-**Implements:** ZIP Download Manager
-**Components implemented:**
-- JSZip integration (CDN: esm.sh/jszip@3.10.1)
-- Streaming ZIP creation (streamFiles: true option)
-- Memory-aware batch sizing (warn if estimated peak > 150MB)
-- Cleanup after download (revoke all blob URLs)
+### Phase 4: Frontend Integration
 
-**Success criteria:** Download 20 variations as ZIP (<200MB peak memory), verify cleanup afterward.
+**Rationale:** Backend is now feature-complete and testable via curl. Frontend can be rewritten as a thin API client without risk of backend API changes. This phase is the largest UX change -- removing all FFmpeg.wasm code and replacing it with fetch/FormData API calls.
+**Delivers:** Working end-to-end application in the browser -- login screen, multi-file upload, polling progress bar, download button, job list page.
+**Features addressed:** Fire-and-forget UX, progress tracking (polling with exponential backoff), job list page
+**Pitfalls to avoid:** Still loading FFmpeg.wasm bundles (Pitfall 14), wrong error UX for server errors vs client errors (Pitfall 17)
+**Stack elements:** Fetch API, FormData, existing CSS/HTML with modifications
 
-### Phase 4: Polish & Differentiators (Optional)
-**Rationale:** Core MVP is complete. Add nice-to-have features based on user feedback.
-**Delivers:** Effect intensity control, metadata export, smart effect distribution
-**Addresses:** Competitive features from FEATURES.md
-**Components implemented:**
-- Effect intensity slider (subtle vs dramatic randomness)
-- Metadata JSON export (manifest of effects per variation)
-- Smart effect distribution (ensure all effect types represented)
+### Phase 5: Production Hardening and Polish
 
-**Defer to post-MVP:** Preview all variations, perceptual hash validation, resume failed batch.
+**Rationale:** System works end-to-end. Final phase is production validation of fire-and-forget (close tab, return for results), auto-stop/start behavior, graceful deploys, and optional polish features.
+**Delivers:** Production-hardened system with verified fire-and-forget workflow, validated auto-stop interaction, and optional enhancements (SSE progress, time estimates, metadata manifest).
+**Features addressed:** SSE progress stream (optional), processing time estimates (optional), metadata JSON manifest in ZIP (optional)
+**Pitfalls to avoid:** Cold start latency (Pitfall 9), deploy downtime (Pitfall 5), auto-stop + polling interaction (Pitfall 3)
 
 ### Phase Ordering Rationale
 
-- **Phase 0 first (if pursued):** FFmpeg.wasm upgrade has cascading impacts. Isolate to prevent mixing architectural changes with feature work.
-- **Phase 1 before Phase 2:** Memory leaks MUST be fixed before scaling to batch operations. Crashes during Phase 2 testing would require backtracking.
-- **Phase 2 before Phase 3:** Prove core batch processing works before adding ZIP complexity. Individual downloads provide fallback if ZIP creation fails.
-- **Phase 3 completion = MVP:** ZIP download completes the core value proposition (generate N variations, download as bundle).
-- **Phase 4 is optional:** Differentiators add polish but aren't essential for launch.
-
-**Critical path:** Phase 1 → Phase 2 → Phase 3 (Phases 0 and 4 are optional)
-
-**Parallelizable work:** Random Effect Generator (Phase 2), Batch Configuration UI (Phase 2) can be built in parallel with Phase 1 cleanup.
+- **Phases are strictly sequential.** Each phase produces a testable artifact that the next phase builds on.
+- **Deploy-first approach.** Phase 1 includes Fly.io deployment so infrastructure problems (volume mount, FFmpeg binary, Docker build) surface immediately rather than at the end.
+- **Risk front-loading.** Phase 2 (FFmpeg processing) is the highest-risk technical work and comes second so problems surface early, before the frontend is built.
+- **Cleanup before frontend.** Phase 3 ensures storage management works before team usage begins. A full volume is worse than a missing UI feature.
+- **Frontend is a thin client.** By the time Phase 4 starts, the entire backend is curl-verified. Frontend work is purely UI/UX with no architectural risk.
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 0 (FFmpeg.wasm Upgrade):** Need official migration guide, test COOP/COEP headers on Cloudflare Pages, verify SharedArrayBuffer fallback behavior
-- **Phase 3 (ZIP Download):** Test JSZip memory characteristics with real data (20 × 5MB files), verify streaming actually reduces peak memory
+**Phases likely needing deeper research during planning:**
+- **Phase 1:** Fly.io volume mount verification, CORS between Cloudflare Pages and Fly.io, Express 5 + Multer disk storage integration. Consider `/gsd:research-phase` for Fly.io-specific Docker + volume setup.
+- **Phase 2:** FFmpeg filter chain porting from v1 `app.js` to native FFmpeg 7.x (version differences in filter syntax, defaults, color space handling). Must test every effect combination. May need phase-level research if filters diverge.
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1 (Memory Management):** Standard blob URL lifecycle patterns, well-documented FFmpeg.wasm cleanup
-- **Phase 2 (Core Batch):** Queue extension follows existing pattern, effect randomization is straightforward utility
+**Phases with well-documented patterns (skip research):**
+- **Phase 3:** Streaming ZIP with archiver and cron-based cleanup are standard Node.js patterns. SIGTERM handling well-documented.
+- **Phase 4:** Standard fetch/FormData API client work. No novel patterns.
+- **Phase 5:** Standard Fly.io deployment validation. Well-documented in official docs.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | MEDIUM | FFmpeg.wasm 0.12.x benefits documented but migration details need verification. JSZip is proven. Version numbers need current check. |
-| Features | MEDIUM | Feature priorities based on ad creative tool patterns (domain knowledge) but not verified with user research or competitor analysis. |
-| Architecture | MEDIUM | Single FFmpeg instance approach is sound based on memory constraints. Web Worker anti-pattern validated by training knowledge but specific memory numbers are estimates. |
-| Pitfalls | HIGH | Memory leak patterns and FFmpeg.wasm limitations are well-documented. Specific to observed issues in existing codebase. |
+| Stack | HIGH | All versions verified against npm/official sources. Express 5 stable (5.2.1), better-sqlite3 v12.6.2 (Jan 2026), fluent-ffmpeg deprecation confirmed. |
+| Features | MEDIUM-HIGH | Feature set synthesized from job queue patterns, async API design, and domain knowledge. Complexity estimates (46-70h total) need validation during implementation. |
+| Architecture | HIGH | Two-tier architecture is standard. Component boundaries well-defined. Fly.io deployment patterns verified against official docs and community examples. |
+| Pitfalls | HIGH | 11 of 17 pitfalls verified against official documentation or community reports with linked sources. Remaining 6 are standard engineering patterns with high confidence. |
 
-**Overall confidence:** MEDIUM
-
-The core architectural recommendations (sequential processing, shared buffer, aggressive cleanup) are sound and grounded in browser memory constraints. The specific technology choices (FFmpeg.wasm 0.12.x, JSZip) are appropriate. However, confidence is limited by:
-
-1. **No external verification:** WebSearch and WebFetch unavailable during research. All recommendations based on training data (Jan 2025 cutoff).
-2. **Version uncertainty:** Specific FFmpeg.wasm 0.12.x features and API details require verification against current documentation.
-3. **Memory estimates:** Peak memory calculations (150MB threshold, 100MB per batch) are estimates based on typical file sizes, not tested with actual project videos.
-4. **Cloudflare Pages capabilities:** COOP/COEP header configuration needs verification.
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-Gaps that need resolution during planning or early implementation:
-
-- **FFmpeg.wasm version decision:** Upgrade to 0.12.x or stay on 0.11.6? Requires testing COOP/COEP headers on Cloudflare Pages staging environment. If headers can't be configured, must stay on 0.11.6 (document this trade-off).
-
-- **Memory budget validation:** Estimates assume 5MB video files. Test with actual user videos (likely 10-50MB for ad creatives) to refine thresholds. May need to reduce max batch size from 20 to 10-15.
-
-- **JSZip streaming effectiveness:** Training knowledge suggests streamFiles: true reduces memory, but this needs empirical validation with 20-video batch. If streaming doesn't help, fallback to "download individually" as primary UX.
-
-- **Effect uniqueness threshold:** How different do variations need to be for ad platforms to accept them? Research didn't find specific perceptual hash distance requirements. Consider consulting domain expert or testing with Meta/Google ad platforms during Phase 2.
-
-- **Browser compatibility baseline:** SharedArrayBuffer requires secure context + COOP/COEP headers. This excludes older browsers and Safari <15.2. Decide: block these browsers with friendly error, or provide degraded experience (single-threaded FFmpeg)?
-
-- **Cancellation implementation:** Can FFmpeg.wasm abort mid-encoding, or only between variations? Research suggests only between, but needs verification. Impacts Phase 1 cancellation cleanup design.
+- **Volume size: 1GB vs 3GB.** Research strongly recommends 3GB minimum. The arithmetic is clear: one batch of 3 sources x 10 variations at 20MB average peaks at ~1.28GB. This must be decided before Phase 1 creates the Fly Volume. Recommendation: use 3GB ($0.45/month instead of $0.15/month).
+- **Auto-stop vs always-on.** Research recommends `min_machines_running = 1` or disabling auto-stop entirely. This trades ~$2-3/month for zero risk of mid-processing machine kills. Recommendation: set `min_machines_running = 1` and revisit after observing actual usage patterns.
+- **FFmpeg filter parity (native vs wasm).** The exact visual output of effect filters may differ between FFmpeg.wasm (based on FFmpeg 5-6.x) and native FFmpeg 7.x. Needs empirical testing during Phase 2 with actual ad creative files.
+- **Processing speed claims.** The 10-50x speedup of native FFmpeg over wasm is widely cited but not benchmarked for this specific workload (short ad creatives with rotation/brightness/contrast/saturation effects). Will be validated empirically in Phase 2.
+- **SSE vs polling for progress.** Architecture research recommends polling (simpler, works with auto-stop). Features research recommends SSE as a differentiator. Recommendation: implement polling in Phase 4, add SSE in Phase 5 only if polling UX feels sluggish.
+- **Dockerfile base image.** STACK.md recommends `node:22-slim` (Debian). ARCHITECTURE.md draft mentions `node:20-alpine`. Use `node:22-slim` -- it avoids Alpine build toolchain issues with better-sqlite3 native addon and uses the correct Node.js LTS version.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Existing codebase analysis (app.js, CONCERNS.md, PROJECT.md) — directly observed memory leaks, race conditions, architecture patterns
-- FFmpeg.wasm architectural constraints from training data — single instance limitations, MEMFS behavior, SharedArrayBuffer requirements
+- [Express 5 release](https://expressjs.com/2025/03/31/v5-1-latest-release.html) -- Express 5 now default on npm
+- [better-sqlite3 npm](https://www.npmjs.com/package/better-sqlite3) -- v12.6.2, Jan 2026
+- [Fly.io Volumes overview](https://fly.io/docs/volumes/overview/) -- volume/machine 1:1 mapping
+- [Fly.io Autostop/Autostart](https://fly.io/docs/launch/autostop-autostart/) -- auto-stop behavior
+- [Fly.io Machine Sizing](https://fly.io/docs/machines/guides-examples/machine-sizing/) -- shared-cpu behavior
+- [Fly.io Deploy Docs](https://fly.io/docs/launch/deploy/) -- deployment with volumes
+- [fluent-ffmpeg archived](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg/issues/1324) -- archived May 2025
+- [Multer docs](https://expressjs.com/en/resources/middleware/multer.html) -- DiskStorage engine
+- [Node.js child_process](https://nodejs.org/api/child_process.html) -- spawn pipe buffer behavior
+- [SQLite WAL mode](https://sqlite.org/wal.html) -- concurrent access
 
 ### Secondary (MEDIUM confidence)
-- FFmpeg.wasm 0.11.6 → 0.12.x migration patterns from training knowledge (Jan 2025 cutoff) — API changes, performance improvements
-- JSZip memory characteristics from training data — streaming behavior, compression trade-offs
-- Browser memory limits and blob URL lifecycle — well-documented Web API behavior
-- Ad platform duplicate detection behavior — inferred from training knowledge of Meta/Google ad policies
+- [SSE vs WebSocket comparison](https://dev.to/haraf/server-sent-events-sse-vs-websockets-vs-long-polling-whats-best-in-2025-5ep8) -- SSE for progress
+- [Fly.io community: FFmpeg speed](https://community.fly.io/t/speedup-ffmpeg-video-processing/23584) -- burst CPU
+- [Fly.io community: /tmp is RAM disk](https://community.fly.io/t/tmp-storage-and-small-volumes/9854) -- tmpfs behavior
+- [Fly.io community: long-running tasks + auto-stop](https://community.fly.io/t/handling-long-running-tasks-with-automatic-machine-shutdown-on-fly-io/24256) -- job loss
+- [HTTP 202 Accepted pattern](https://apidog.com/blog/status-code-202-accepted/) -- async request-reply
 
 ### Tertiary (LOW confidence, needs validation)
-- Specific version numbers (FFmpeg.wasm 0.12.10, JSZip 3.10.1) — may be outdated, check npm before implementation
-- Memory budget thresholds (150MB safe limit) — estimates based on typical devices, requires testing
-- Performance benchmarks (2-3x improvement with 0.12.x) — based on published benchmarks, actual results vary by device/browser
-- Cloudflare Pages header configuration — capabilities not verified, needs docs check
-
-### Verification Required
-Before implementation, verify these findings against current sources:
-1. [@ffmpeg/ffmpeg latest version](https://www.npmjs.com/package/@ffmpeg/ffmpeg) — check if 0.12.x stable, review changelog
-2. [FFmpeg.wasm migration guide](https://github.com/ffmpegwasm/ffmpeg.wasm) — 0.11.6 → latest upgrade path
-3. [Cloudflare Pages documentation](https://developers.cloudflare.com/pages/) — COOP/COEP header configuration
-4. [JSZip documentation](https://stuk.github.io/jszip/) — verify streamFiles option and memory characteristics
-5. Test on target devices (low-end laptop 4GB RAM, mobile browsers) — validate memory budget assumptions
+- Processing speedup claims (10-50x native vs wasm) -- not benchmarked for this workload
+- 1GB storage sufficiency -- arithmetic says insufficient, needs real-world validation
+- Auto-stop + polling interaction -- should work per docs, needs testing on Fly.io
 
 ---
-*Research completed: 2026-02-06*
+*Research completed: 2026-02-07*
+*Supersedes v1.0 client-side research summary (2026-02-06)*
 *Ready for roadmap: yes*
