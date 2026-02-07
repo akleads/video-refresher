@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 9 (Backend Foundation) -- first phase of v2.0 milestone
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-07 -- Roadmap created for v2.0 milestone
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-07 -- Completed 06-01-PLAN.md
 
-Progress: [=====-----] 56% (v1.0 complete, v2.0 starting)
+Progress: [======----] 60% (8 of 13+ plans complete)
 
 ## Performance Metrics
 
@@ -24,8 +24,9 @@ Progress: [=====-----] 56% (v1.0 complete, v2.0 starting)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 0
-- Phases: 6-9 (4 phases, plans TBD)
+- Total plans completed: 1
+- Average duration: 3.1 min
+- Phases: 6-9 (4 phases, 3+ plans known)
 
 *Updated after each plan completion*
 
@@ -36,11 +37,17 @@ Progress: [=====-----] 56% (v1.0 complete, v2.0 starting)
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v2.0 init]: Use 3GB Fly Volume (not 1GB) -- peak batch usage ~1.28GB
-- [v2.0 init]: Use node:22-slim Docker base (not Alpine) -- better-sqlite3 native addon
-- [v2.0 init]: Use child_process.spawn for FFmpeg (not fluent-ffmpeg) -- archived May 2025
-- [v2.0 init]: Set min_machines_running = 1 -- prevents auto-stop mid-processing
-- [v2.0 init]: All file I/O on Fly Volume (/data/) -- /tmp is RAM disk on Fly.io
+| ID | Decision | Phase | Rationale |
+|----|----------|-------|-----------|
+| v2.0-init-01 | Use 3GB Fly Volume (not 1GB) | 06 | Peak batch usage ~1.28GB |
+| v2.0-init-02 | Use node:22-slim Docker base (not Alpine) | 06 | better-sqlite3 native addon needs glibc |
+| v2.0-init-03 | Use child_process.spawn for FFmpeg | 06 | fluent-ffmpeg archived May 2025 |
+| v2.0-init-04 | Set min_machines_running = 1 | 06 | Prevents auto-stop mid-processing |
+| v2.0-init-05 | All file I/O on Fly Volume (/data/) | 06 | /tmp is RAM disk on Fly.io |
+| 06-01-esm | Use "type": "module" for server package | 06-01 | nanoid 5 ESM-only, Node.js 22 best practice |
+| 06-01-hmac | HMAC tokens instead of JWT | 06-01 | No external claims needed, simpler, zero deps |
+| 06-01-wal | Enable SQLite WAL mode | 06-01 | Concurrent reads during writes, prevents SQLITE_BUSY |
+| 06-01-local | Use ./data for local dev | 06-01 | No Fly Volume locally, fallback to relative path |
 
 ### Pending Todos
 
@@ -52,6 +59,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Roadmap created for v2.0 milestone, ready to plan Phase 6
+Last session: 2026-02-07 20:04 UTC
+Stopped at: Completed 06-01-PLAN.md (Server foundation with Express 5, SQLite, auth)
 Resume file: None
+Next: 06-02-PLAN.md (Jobs API with multi-file upload)
