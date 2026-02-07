@@ -13,7 +13,7 @@ This roadmap transforms the existing single-video processing tool into a batch v
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: FFmpeg.wasm Upgrade** - Modernize FFmpeg.wasm to 0.12.x for multi-threading and better memory management
-- [ ] **Phase 2: Memory Management** - Fix memory leaks and establish cleanup infrastructure for batch stability
+- [x] **Phase 2: Memory Management** - Fix memory leaks and establish cleanup infrastructure for batch stability
 - [ ] **Phase 3: Performance Optimization** - Optimize encoding settings and buffer reuse for efficient batch processing
 - [ ] **Phase 4: Core Batch Generation** - Build variation count input, unique effect combinations, and batch progress tracking
 - [ ] **Phase 5: ZIP Download** - Implement bulk download of all variations as single ZIP file
@@ -48,8 +48,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — BlobURLRegistry, blob URL revocation lifecycle, bounded processedVideos with eviction cleanup
-- [ ] 02-02-PLAN.md — FFmpeg instance recovery on corruption errors + human verification of memory stability
+- [x] 02-01-PLAN.md — BlobURLRegistry, blob URL revocation lifecycle, bounded processedVideos with eviction cleanup
+- [x] 02-02-PLAN.md — FFmpeg instance recovery on corruption errors + human verification of memory stability
 
 ### Phase 3: Performance Optimization
 **Goal**: Processing speed optimized for efficient batch operations
@@ -102,7 +102,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. FFmpeg.wasm Upgrade | 2/2 | Complete | 2026-02-07 |
-| 2. Memory Management | 0/2 | Not started | - |
+| 2. Memory Management | 2/2 | Complete | 2026-02-06 |
 | 3. Performance Optimization | 0/TBD | Not started | - |
 | 4. Core Batch Generation | 0/TBD | Not started | - |
 | 5. ZIP Download | 0/TBD | Not started | - |

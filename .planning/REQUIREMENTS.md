@@ -19,10 +19,10 @@
 
 ### Memory Management
 
-- [ ] **MEM-01**: Blob URLs revoked between variations to prevent memory leaks
-- [ ] **MEM-02**: FFmpeg virtual filesystem cleaned between each variation
-- [ ] **MEM-03**: processedVideos array managed — old entries cleaned up
-- [ ] **MEM-04**: FFmpeg instance recovery on partial failure (reload if corrupted)
+- [x] **MEM-01**: Blob URLs revoked between variations to prevent memory leaks
+- [x] **MEM-02**: FFmpeg virtual filesystem cleaned between each variation
+- [x] **MEM-03**: processedVideos array managed — old entries cleaned up
+- [x] **MEM-04**: FFmpeg instance recovery on partial failure (reload if corrupted)
 
 ### Download
 
@@ -60,11 +60,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-01 | Phase 1 | Pending |
-| MEM-01 | Phase 2 | Pending |
-| MEM-02 | Phase 2 | Pending |
-| MEM-03 | Phase 2 | Pending |
-| MEM-04 | Phase 2 | Pending |
+| PERF-01 | Phase 1 | Complete |
+| MEM-01 | Phase 2 | Complete |
+| MEM-02 | Phase 2 | Complete |
+| MEM-03 | Phase 2 | Complete |
+| MEM-04 | Phase 2 | Complete |
 | PERF-02 | Phase 3 | Pending |
 | PERF-03 | Phase 3 | Pending |
 | BATCH-01 | Phase 4 | Pending |
