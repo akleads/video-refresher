@@ -44,17 +44,41 @@ export function createJobsRouter(db, queries) {
     }
 
     const files = queries.getJobFiles.all(req.params.id);
+    const outputFiles = queries.getOutputFiles.all(req.params.id);
+
+    const outputsByFile = {};
+    for (const out of outputFiles) {
+      if (!outputsByFile[out.job_file_id]) outputsByFile[out.job_file_id] = [];
+      outputsByFile[out.job_file_id].push({
+        id: out.id,
+        variationIndex: out.variation_index,
+        outputPath: out.output_path,
+        fileSize: out.file_size
+      });
+    }
+
+    let overallProgress = 0;
+    if (files.length > 0) {
+      const sum = files.reduce((acc, f) => acc + (f.progress_percent || 0), 0);
+      overallProgress = Math.round(sum / files.length);
+    }
+    if (job.status === 'completed') overallProgress = 100;
 
     res.json({
       jobId: job.id,
       status: job.status,
       totalVideos: job.total_videos,
       totalVariations: job.total_variations,
+      overallProgress,
       files: files.map(f => ({
         id: f.id,
         name: f.original_name,
         size: f.file_size,
-        status: f.status
+        status: f.status,
+        progress: f.progress_percent || 0,
+        completedVariations: f.completed_variations || 0,
+        error: f.error || null,
+        outputs: outputsByFile[f.id] || []
       })),
       createdAt: job.created_at,
       expiresAt: job.expires_at,
