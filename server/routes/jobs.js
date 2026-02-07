@@ -1,0 +1,78 @@
+import { Router } from 'express';
+import { requireAuth } from '../middleware/auth.js';
+import { upload } from '../middleware/upload.js';
+import { generateId } from '../lib/id.js';
+
+export function createJobsRouter(db, queries) {
+  const router = Router();
+
+  // POST / - Create job with uploads
+  router.post('/', requireAuth, upload.array('videos', 10), async (req, res) => {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No video files uploaded' });
+    }
+
+    // Parse and clamp variationsPerVideo
+    const variationsPerVideo = Math.max(1, Math.min(20, parseInt(req.body.variations) || 5));
+    const jobId = generateId();
+
+    // Insert job
+    queries.insertJob.run(jobId, req.files.length, req.files.length * variationsPerVideo);
+
+    // Insert file records
+    const files = req.files.map(f => {
+      const fileId = generateId();
+      queries.insertJobFile.run(fileId, jobId, f.originalname, f.path, f.size);
+      return { id: fileId, name: f.originalname, size: f.size };
+    });
+
+    res.status(202).json({
+      jobId,
+      status: 'queued',
+      files,
+      variationsPerVideo,
+      totalVariations: req.files.length * variationsPerVideo,
+      statusUrl: `/api/jobs/${jobId}`
+    });
+  });
+
+  // GET /:id - Job status
+  router.get('/:id', requireAuth, (req, res) => {
+    const job = queries.getJob.get(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    const files = queries.getJobFiles.all(req.params.id);
+
+    res.json({
+      jobId: job.id,
+      status: job.status,
+      totalVideos: job.total_videos,
+      totalVariations: job.total_variations,
+      files: files.map(f => ({
+        id: f.id,
+        name: f.original_name,
+        size: f.file_size,
+        status: f.status
+      })),
+      createdAt: job.created_at,
+      expiresAt: job.expires_at,
+      error: job.error
+    });
+  });
+
+  // GET / - List jobs
+  router.get('/', requireAuth, (req, res) => {
+    const jobs = queries.listJobs.all();
+    res.json(jobs.map(job => ({
+      id: job.id,
+      status: job.status,
+      totalVideos: job.total_videos,
+      totalVariations: job.total_variations,
+      createdAt: job.created_at
+    })));
+  });
+
+  return router;
+}
