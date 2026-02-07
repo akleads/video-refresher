@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 ## Current Position
 
 Phase: 4 of 5 (Core Batch Generation) — In progress
-Plan: 1 of 3 in current phase
-Status: Plan 04-01 complete
-Last activity: 2026-02-07 — Completed 04-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Plan 04-02 complete
+Last activity: 2026-02-07 — Completed 04-02-PLAN.md
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 5 min
-- Total execution time: 0.53 hours
+- Total plans completed: 7
+- Average duration: 4.4 min
+- Total execution time: 0.52 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [██████░░░░] 60%
 | 01-ffmpeg-wasm-upgrade | 2 | 13min | 7min |
 | 02-memory-management | 2 | 7min | 4min |
 | 03-performance-optimization | 1 | 8min | 8min |
-| 04-core-batch-generation | 1 | 2min | 2min |
+| 04-core-batch-generation | 2 | 6min | 3min |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (2min), 02-02 (5min), 03-01 (8min), 04-01 (2min)
-- Trend: Pure logic/function tasks complete quickly; plans with human-verify checkpoints take longer
+- Last 5 plans: 02-02 (5min), 03-01 (8min), 04-01 (2min), 04-02 (4min)
+- Trend: Pure logic/function tasks complete quickly; plans with human-verify checkpoints take longer but are still fast
 
 *Updated after each plan completion*
 
@@ -68,6 +68,11 @@ Recent decisions affecting current work:
 - Use maxAttempts = count * 100 in generateUniqueEffects() (Prevent infinite loops while providing generous collision avoidance budget)
 - Add fillcolor=black@0 to rotate filter when using custom effects (Prevent transparency artifacts from custom rotation values)
 - Extend processVideo() with effects and variationIndex parameters using null defaults (Maintain backward compatibility for existing single-video workflow)
+- Use orchestration-layer cancellation with batchCancelled flag between variations (FFmpeg.wasm 0.12.x doesn't expose mid-encoding abort API)
+- Process batch variations sequentially in for loop (Avoid FFmpeg instance conflicts and CPU thrashing from parallel encoding)
+- Load buffer once before batch loop via loadVideoBuffer() and ffmpeg.writeFile() (Eliminate N-1 redundant file operations)
+- Display first completed variation in preview area immediately (Early quality feedback before batch completes)
+- Preserve partial results on cancellation (User keeps all completed variations when stopping mid-batch)
 
 ### Pending Todos
 
@@ -91,15 +96,18 @@ None yet.
 - ✓ 03-01 complete: Ultrafast encoding preset + buffer reuse infrastructure
 - Ready for Phase 4: Batch processing infrastructure prepared (loadVideoBuffer, preloadedBuffer, cleanupInput parameters)
 
-**Phase 4: IN PROGRESS**
+**Phase 4: COMPLETE**
 - ✓ 04-01 complete: Batch logic foundations (generateUniqueEffects, formatVariationFilename, extended processVideo)
-- Next: 04-02 batch UI and orchestration
-- Remaining concerns:
-  - Effect uniqueness threshold unclear — how different must variations be for ad platforms?
-  - Cancellation implementation depends on whether FFmpeg.wasm can abort mid-encoding
+- ✓ 04-02 complete: Batch UI and orchestration (variation count input, generateBatch orchestrator, cancellation)
+- Ready for Phase 5: ZIP download for bulk variations
+- Decisions made:
+  - Orchestration-layer cancellation using shared flag between variations (FFmpeg.wasm can't abort mid-encoding)
+  - Sequential batch processing to avoid FFmpeg conflicts and CPU thrashing
+  - Buffer reuse pattern: single loadVideoBuffer() + MEMFS write before loop
+  - First variation preview for early quality check
 
 ## Session Continuity
 
-Last session: 2026-02-07 (Phase 4 Plan 01 complete)
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-02-07 (Phase 4 complete)
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
