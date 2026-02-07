@@ -138,6 +138,35 @@ async function loadFFmpeg() {
     }
 }
 
+// Recover FFmpeg instance after corruption
+async function recoverFFmpeg() {
+    console.warn('FFmpeg instance corrupted, recovering...');
+
+    // Mark as unloaded
+    ffmpegLoaded = false;
+
+    // Create new instance
+    ffmpeg = new FFmpeg();
+
+    // Re-attach event handlers (same as in loadFFmpeg)
+    ffmpeg.on('progress', ({ progress, time }) => {
+        // Clamp progress to 0-1 range (known bug: can return negative values)
+        const clampedProgress = Math.max(0, Math.min(1, progress));
+        const progressPercent = Math.round(clampedProgress * 100);
+        console.log('FFmpeg progress:', progressPercent + '%');
+        updateProgress(progressPercent, `Processing... ${progressPercent}%`);
+    });
+
+    ffmpeg.on('log', ({ message }) => {
+        console.log('FFmpeg:', message);
+    });
+
+    // Reload FFmpeg core
+    await loadFFmpeg();
+
+    console.log('FFmpeg recovered successfully');
+}
+
 // Update progress bar
 function updateProgress(percent, text) {
     const progressBar = document.getElementById('progressBar');
@@ -517,7 +546,18 @@ async function processVideo(file) {
     } catch (error) {
         console.error('FFmpeg processing error:', error);
         console.error('Error details:', error.message, error.stack);
-        
+
+        // Check if FFmpeg instance needs recovery
+        const corruptionIndicators = [/abort/i, /OOM/i, /Out of Memory/i, /RuntimeError/i];
+        const needsRecovery = corruptionIndicators.some(p => p.test(error.message));
+        if (needsRecovery) {
+            try {
+                await recoverFFmpeg();
+            } catch (recoveryError) {
+                console.error('FFmpeg recovery failed:', recoveryError);
+            }
+        }
+
         // Provide specific error messages
         if (error.message.includes('OOM') || error.message.includes('Out of Memory')) {
             throw new Error('Out of Memory: The video file is too large for browser processing. Try a smaller file (under 200MB) or reduce the video resolution first.');
