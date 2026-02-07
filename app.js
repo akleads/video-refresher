@@ -57,6 +57,7 @@ async function loadFFmpeg() {
         const loadConfig = {
             coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
             wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+            classWorkerURL: new URL('./ffmpeg-worker.js', import.meta.url).href,
         };
 
         // Multi-threaded requires worker file
@@ -82,6 +83,7 @@ async function loadFFmpeg() {
                 await ffmpeg.load({
                     coreURL: await toBlobURL(`${stBaseURL}/ffmpeg-core.js`, 'text/javascript'),
                     wasmURL: await toBlobURL(`${stBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                    classWorkerURL: new URL('./ffmpeg-worker.js', import.meta.url).href,
                 });
                 ffmpegLoaded = true;
                 console.log('FFmpeg loaded successfully (single-threaded fallback)');
