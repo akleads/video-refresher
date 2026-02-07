@@ -4,40 +4,33 @@
 
 See: .planning/PROJECT.md (updated 2026-02-07)
 
-**Core value:** Upload one video creative, get multiple unique variations ready for ad platform rotation — fast and without leaving the browser.
-**Current focus:** v1.0 shipped — planning next milestone
+**Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation — fast, without waiting at the screen.
+**Current focus:** v2.0 — server-side multi-video processing
 
 ## Current Position
 
-Phase: 5 of 5 — All phases complete
-Plan: All complete
-Status: v1.0 milestone shipped
-Last activity: 2026-02-07 — v1.0 milestone complete
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-07 — Milestone v2.0 started
 
-Progress: [██████████] 100%
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**Velocity:**
+**v1.0 Velocity (reference):**
 - Total plans completed: 8
 - Average duration: 4.8 min
 - Total execution time: 0.64 hours
-
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01-ffmpeg-wasm-upgrade | 2 | 13min | 7min |
-| 02-memory-management | 2 | 7min | 4min |
-| 03-performance-optimization | 1 | 8min | 8min |
-| 04-core-batch-generation | 2 | 6min | 3min |
-| 05-zip-download | 1 | 12min | 12min |
 
 ## Accumulated Context
 
 ### Decisions
 
-All decisions logged in PROJECT.md Key Decisions table.
+- Move to server-side FFmpeg on Fly.io for workflow convenience
+- SQLite for job tracking (zero cost)
+- 1GB storage cap + 24h expiry
+- Shared password auth for small team
 
 ### Pending Todos
 
@@ -45,10 +38,10 @@ None.
 
 ### Blockers/Concerns
 
-None — v1.0 shipped successfully.
+None.
 
 ## Session Continuity
 
-Last session: 2026-02-07 (v1.0 milestone archived)
-Stopped at: Milestone completion — ready for /gsd:new-milestone
+Last session: 2026-02-07
+Stopped at: Milestone v2.0 started — defining requirements
 Resume file: None
