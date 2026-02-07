@@ -58,11 +58,12 @@ Plans:
   3. Jobs continue processing after the API client disconnects (fire-and-forget verified by uploading, killing the connection, and polling later to see completion)
   4. If the server restarts mid-processing, interrupted jobs are marked as failed/retryable in SQLite (not silently lost)
   5. A video that fails to process (corrupt input, FFmpeg error) does not block the rest of the batch -- other videos complete normally
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md -- Schema extensions, FFmpeg spawn wrapper, and effects generator
+- [ ] 07-02-PLAN.md -- Video processor and job queue worker
+- [ ] 07-03-PLAN.md -- Startup recovery, graceful shutdown, and status endpoint enhancement
 
 ### Phase 8: Download, Cleanup, and Job Lifecycle
 **Goal**: The backend lifecycle is complete end-to-end -- upload, process, download as ZIP, auto-expire after 24 hours, and evict oldest results when storage is full.
@@ -105,6 +106,6 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 |-------|-----------|----------------|--------|-----------|
 | 1-5 | v1.0 | 8/8 | Complete | 2026-02-07 |
 | 6. Backend Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
-| 7. FFmpeg Processing Engine | v2.0 | 0/TBD | Not started | - |
+| 7. FFmpeg Processing Engine | v2.0 | 0/3 | Not started | - |
 | 8. Download, Cleanup, Job Lifecycle | v2.0 | 0/TBD | Not started | - |
 | 9. Frontend Integration | v2.0 | 0/TBD | Not started | - |
