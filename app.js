@@ -1,8 +1,9 @@
-// Use esm.sh CDN which handles npm packages better for ES modules
-// Using older version 0.11.6 which doesn't have worker CORS issues
-import { createFFmpeg, fetchFile } from 'https://esm.sh/@ffmpeg/ffmpeg@0.11.6';
+import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.14/+esm';
+import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/+esm';
 
-// No need to wait - it's loaded as ES module
+function supportsMultiThreading() {
+    return typeof SharedArrayBuffer !== 'undefined' && crossOriginIsolated === true;
+}
 
 // Generate unique identifier (same as original script)
 function generateUniqueID() {
@@ -14,41 +15,82 @@ function generateUniqueID() {
 // Initialize FFmpeg
 let ffmpeg = null;
 let ffmpegLoaded = false;
+let isMultiThreaded = false;
 
 async function loadFFmpeg() {
     if (ffmpegLoaded) {
         console.log('FFmpeg already loaded');
         return;
     }
-    
+
     const statusText = document.getElementById('processingStatus');
     if (statusText) {
         statusText.textContent = 'Loading FFmpeg... This may take a moment.';
     }
-    
+
     try {
         console.log('Creating FFmpeg instance...');
-        // Use older API (0.11.6) which doesn't have worker CORS issues
-        ffmpeg = createFFmpeg({
-            log: true,
-            progress: ({ ratio }) => {
-                const progressPercent = Math.round(ratio * 100);
-                console.log('FFmpeg progress:', progressPercent + '%');
-                updateProgress(progressPercent, `Processing... ${progressPercent}%`);
-            },
-            // Load from CDN with proper CORS headers
-            corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+        ffmpeg = new FFmpeg();
+
+        // Event-based progress (replaces callback in 0.11.x)
+        ffmpeg.on('progress', ({ progress, time }) => {
+            // Clamp progress to 0-1 range (known bug: can return negative values)
+            const clampedProgress = Math.max(0, Math.min(1, progress));
+            const progressPercent = Math.round(clampedProgress * 100);
+            console.log('FFmpeg progress:', progressPercent + '%');
+            updateProgress(progressPercent, `Processing... ${progressPercent}%`);
         });
-        
+
+        ffmpeg.on('log', ({ message }) => {
+            console.log('FFmpeg:', message);
+        });
+
+        // Detect SharedArrayBuffer support for multi-threading
+        isMultiThreaded = supportsMultiThreading();
+        const coreType = isMultiThreaded ? 'multi-threaded' : 'single-threaded';
+        console.log(`Loading FFmpeg (${coreType})...`);
+
+        const baseURL = isMultiThreaded
+            ? 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-mt@0.12.10/dist/esm'
+            : 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.10/dist/esm';
+
+        const loadConfig = {
+            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        };
+
+        // Multi-threaded requires worker file
+        if (isMultiThreaded) {
+            loadConfig.workerURL = await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript');
+        }
+
         console.log('Loading FFmpeg core...');
-        // Load FFmpeg
-        await ffmpeg.load();
-        
+        await ffmpeg.load(loadConfig);
+
         ffmpegLoaded = true;
-        console.log('FFmpeg loaded successfully');
+        console.log(`FFmpeg loaded successfully (${coreType})`);
     } catch (error) {
         console.error('Error loading FFmpeg:', error);
         console.error('Error details:', error.message, error.stack);
+
+        // If multi-threaded loading failed, try single-threaded fallback
+        if (isMultiThreaded) {
+            console.warn('Multi-threaded loading failed, falling back to single-threaded...');
+            isMultiThreaded = false;
+            try {
+                const stBaseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.12.10/dist/esm';
+                await ffmpeg.load({
+                    coreURL: await toBlobURL(`${stBaseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${stBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                });
+                ffmpegLoaded = true;
+                console.log('FFmpeg loaded successfully (single-threaded fallback)');
+                return;
+            } catch (fallbackError) {
+                console.error('Single-threaded fallback also failed:', fallbackError);
+            }
+        }
+
         if (statusText) {
             statusText.textContent = `Error loading FFmpeg: ${error.message}. Please refresh the page.`;
         }
