@@ -45,10 +45,11 @@ Plans:
   3. FFmpeg virtual filesystem cleaned between each video operation
   4. processedVideos array properly managed with old entries removed
   5. FFmpeg instance recovers gracefully from processing failures
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: [To be determined during planning]
+- [ ] 02-01-PLAN.md — BlobURLRegistry, blob URL revocation lifecycle, bounded processedVideos with eviction cleanup
+- [ ] 02-02-PLAN.md — FFmpeg instance recovery on corruption errors + human verification of memory stability
 
 ### Phase 3: Performance Optimization
 **Goal**: Processing speed optimized for efficient batch operations
@@ -101,7 +102,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. FFmpeg.wasm Upgrade | 2/2 | Complete | 2026-02-07 |
-| 2. Memory Management | 0/TBD | Not started | - |
+| 2. Memory Management | 0/2 | Not started | - |
 | 3. Performance Optimization | 0/TBD | Not started | - |
 | 4. Core Batch Generation | 0/TBD | Not started | - |
 | 5. ZIP Download | 0/TBD | Not started | - |
