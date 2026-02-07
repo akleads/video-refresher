@@ -9,29 +9,30 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 1 of 5 (FFmpeg.wasm Upgrade) — Complete
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-07 — Completed 01-02-PLAN.md
+Phase: 2 of 5 (Memory Management) — In progress
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-07 — Completed 02-01-PLAN.md
 
-Progress: [██░░░░░░░░] 20%
+Progress: [███░░░░░░░] 30%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 7 min
-- Total execution time: 0.22 hours
+- Total plans completed: 3
+- Average duration: 5 min
+- Total execution time: 0.25 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-ffmpeg-wasm-upgrade | 2 | 13min | 7min |
+| 02-memory-management | 1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1min), 01-02 (12min)
-- Trend: Includes human-verify checkpoint time
+- Last 5 plans: 01-01 (1min), 01-02 (12min), 02-01 (2min)
+- Trend: Fully autonomous plans execute faster than human-verify checkpoints
 
 *Updated after each plan completion*
 
@@ -49,6 +50,9 @@ Recent decisions affecting current work:
 - Clamp FFmpeg progress to 0-1 range (Known bug in 0.12.x returning negative values)
 - Check both SharedArrayBuffer and crossOriginIsolated (SharedArrayBuffer may exist but be disabled without COOP/COEP)
 - Self-host FFmpeg class worker (CDN blob URLs break due to relative ES module imports in worker.js)
+- Cap processedVideos at 20 entries (Balances memory usage with user experience for desktop/mobile middle ground)
+- Revoke original video blob URL when new video uploaded (Original only needed for preview until next upload)
+- Use simple eviction function instead of class (Transparent implementation, minimal abstraction for single use case)
 
 ### Pending Todos
 
@@ -63,8 +67,9 @@ None yet.
 - ✓ Self-hosted class worker resolves CORS issue
 - ✓ End-to-end verified: upload → process → preview → download
 
-**Phase 2 Dependencies:**
-- Memory cleanup must succeed before scaling to batch operations (crashes guaranteed otherwise)
+**Phase 2: IN PROGRESS**
+- ✓ 02-01 complete: BlobURLRegistry + bounded processedVideos with eviction
+- Next: 02-02 FFmpeg instance recovery + memory stability verification
 
 **Phase 4 Considerations:**
 - Effect uniqueness threshold unclear — how different must variations be for ad platforms?
@@ -72,6 +77,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 (Phase 1 execution complete)
-Stopped at: Phase 1 complete — all 2 plans executed, human-verified
+Last session: 2026-02-07 (Phase 2 in progress)
+Stopped at: Completed 02-01-PLAN.md
 Resume file: None
