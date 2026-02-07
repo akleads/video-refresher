@@ -352,6 +352,86 @@ summary:hover {
     transform: translateY(0);
 }
 
+/* Batch generation controls */
+.batch-section {
+    margin: 1.5rem 0;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.batch-section h3 {
+    margin-bottom: 15px;
+    color: #667eea;
+    font-size: 1.2em;
+}
+
+.batch-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.batch-controls label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.variation-input {
+    width: 80px;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+    text-align: center;
+}
+
+.generate-btn {
+    padding: 0.5rem 1.5rem;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.generate-btn:hover {
+    background: #218838;
+}
+
+.generate-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.cancel-btn {
+    padding: 0.5rem 1.5rem;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.cancel-btn:hover {
+    background: #c82333;
+}
+
+.batch-progress {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #e9ecef;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    color: #495057;
+}
+
 footer {
     background: #f8f9fa;
     padding: 20px;
