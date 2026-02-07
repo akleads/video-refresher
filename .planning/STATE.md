@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Upload one video creative, get multiple unique variations ready for ad platform rotation — fast and without leaving the browser.
-**Current focus:** Phase 3 - Performance Optimization (Phases 1-2 complete)
+**Current focus:** Phase 4 - Core Batch Generation (Phases 1-3 complete)
 
 ## Current Position
 
-Phase: 3 of 5 (Performance Optimization) — In progress
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-02-07 — Completed 03-01-PLAN.md
+Phase: 4 of 5 (Core Batch Generation) — In progress
+Plan: 1 of 3 in current phase
+Status: Plan 04-01 complete
+Last activity: 2026-02-07 — Completed 04-01-PLAN.md
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 6 min
-- Total execution time: 0.50 hours
+- Total plans completed: 6
+- Average duration: 5 min
+- Total execution time: 0.53 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [█████░░░░░] 50%
 | 01-ffmpeg-wasm-upgrade | 2 | 13min | 7min |
 | 02-memory-management | 2 | 7min | 4min |
 | 03-performance-optimization | 1 | 8min | 8min |
+| 04-core-batch-generation | 1 | 2min | 2min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (12min), 02-01 (2min), 02-02 (5min), 03-01 (8min)
-- Trend: Plans with human-verify checkpoints take longer due to verification time
+- Last 5 plans: 02-01 (2min), 02-02 (5min), 03-01 (8min), 04-01 (2min)
+- Trend: Pure logic/function tasks complete quickly; plans with human-verify checkpoints take longer
 
 *Updated after each plan completion*
 
@@ -62,6 +63,11 @@ Recent decisions affecting current work:
 - Add preloadedBuffer parameter to processVideo() for buffer reuse (Skip redundant file.arrayBuffer() calls)
 - Add cleanupInput parameter to conditionally preserve input file in MEMFS (Avoid re-writing same file across batch operations)
 - Log encoding performance timing via performance.now() (Visibility into optimization impact)
+- Effect parameter ranges: rotation 0.001-0.01 rad, brightness -0.05-0.05, contrast/saturation 0.95-1.05 (Produce visually distinct variations without quality degradation)
+- Round effect values to 4 decimal places for consistent duplicate detection (JSON.stringify deduplication requires consistent precision)
+- Use maxAttempts = count * 100 in generateUniqueEffects() (Prevent infinite loops while providing generous collision avoidance budget)
+- Add fillcolor=black@0 to rotate filter when using custom effects (Prevent transparency artifacts from custom rotation values)
+- Extend processVideo() with effects and variationIndex parameters using null defaults (Maintain backward compatibility for existing single-video workflow)
 
 ### Pending Todos
 
@@ -85,12 +91,15 @@ None yet.
 - ✓ 03-01 complete: Ultrafast encoding preset + buffer reuse infrastructure
 - Ready for Phase 4: Batch processing infrastructure prepared (loadVideoBuffer, preloadedBuffer, cleanupInput parameters)
 
-**Phase 4 Considerations:**
-- Effect uniqueness threshold unclear — how different must variations be for ad platforms?
-- Cancellation implementation depends on whether FFmpeg.wasm can abort mid-encoding
+**Phase 4: IN PROGRESS**
+- ✓ 04-01 complete: Batch logic foundations (generateUniqueEffects, formatVariationFilename, extended processVideo)
+- Next: 04-02 batch UI and orchestration
+- Remaining concerns:
+  - Effect uniqueness threshold unclear — how different must variations be for ad platforms?
+  - Cancellation implementation depends on whether FFmpeg.wasm can abort mid-encoding
 
 ## Session Continuity
 
-Last session: 2026-02-07 (Phase 3 complete)
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-02-07 (Phase 4 Plan 01 complete)
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
