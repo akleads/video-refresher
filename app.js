@@ -484,7 +484,7 @@ function formatVariationFilename(originalName, variationIndex) {
     return `${baseName}_var${variationIndex}_${uniqueID}.mp4`;
 }
 
-async function processVideo(file, preloadedBuffer = null, cleanupInput = true) {
+async function processVideo(file, preloadedBuffer = null, cleanupInput = true, effects = null, variationIndex = null) {
     const statusText = document.getElementById('processingStatus');
     
     console.log('Starting processVideo for file:', file.name);
@@ -520,10 +520,15 @@ async function processVideo(file, preloadedBuffer = null, cleanupInput = true) {
     console.log('File loaded, size:', uint8Array.length);
     
     // Generate output filename
-    const fileName = file.name.replace(/\.mp4$/i, '');
-    const uniqueID = generateUniqueID();
+    let outputFileName;
+    if (variationIndex !== null) {
+        outputFileName = formatVariationFilename(file.name, variationIndex);
+    } else {
+        const fileName = file.name.replace(/\.mp4$/i, '');
+        const uniqueID = generateUniqueID();
+        outputFileName = `${fileName}_${uniqueID}.mp4`;
+    }
     const inputFileName = 'input.mp4';
-    const outputFileName = `${fileName}_${uniqueID}.mp4`;
     
     // Write input file to FFmpeg filesystem (synchronous operation)
     statusText.textContent = 'Preparing video...';
@@ -555,10 +560,17 @@ async function processVideo(file, preloadedBuffer = null, cleanupInput = true) {
         ];
         console.log('Using ultrafast encoding settings');
 
+        let videoFilters;
+        if (effects) {
+            videoFilters = `rotate=${effects.rotation}:fillcolor=black@0,eq=brightness=${effects.brightness}:contrast=${effects.contrast}:saturation=${effects.saturation}`;
+        } else {
+            videoFilters = 'rotate=0.00349,eq=brightness=0.01:contrast=1.01:saturation=1.01';
+        }
+
         const processingStartTime = performance.now();
         await ffmpeg.exec([
             '-i', inputFileName,
-            '-vf', 'rotate=0.00349,eq=brightness=0.01:contrast=1.01:saturation=1.01',
+            '-vf', videoFilters,
             '-r', '29.97',
             ...encodingSettings,
             '-map_metadata', '-1',
@@ -635,6 +647,14 @@ async function processVideo(file, preloadedBuffer = null, cleanupInput = true) {
     } catch (e) {
         console.warn('Cleanup warning:', e);
     }
+
+    return {
+        filename: outputFileName,
+        blob: blob,
+        url: processedURL,
+        effects: effects,
+        size: blob.size
+    };
 }
 
 // Update the list of all processed videos
