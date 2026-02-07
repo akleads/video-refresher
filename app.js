@@ -538,7 +538,7 @@ function formatVariationFilename(originalName, variationIndex) {
     return `${baseName}_var${variationIndex}_${uniqueID}.mp4`;
 }
 
-async function processVideo(file, preloadedBuffer = null, cleanupInput = true, effects = null, variationIndex = null) {
+async function processVideo(file, preloadedBuffer = null, cleanupInput = true, effects = null, variationIndex = null, inputAlreadyInMemfs = false) {
     const statusText = document.getElementById('processingStatus');
     
     console.log('Starting processVideo for file:', file.name);
@@ -589,12 +589,16 @@ async function processVideo(file, preloadedBuffer = null, cleanupInput = true, e
     updateProgress(10, 'Preparing video...');
     console.log('Writing file to FFmpeg filesystem...');
     
-    try {
-        await ffmpeg.writeFile(inputFileName, uint8Array);
-        console.log('File written to FFmpeg filesystem');
-    } catch (error) {
-        console.error('Error writing file to FFmpeg filesystem:', error);
-        throw new Error('Failed to write file to FFmpeg filesystem');
+    if (!inputAlreadyInMemfs) {
+        try {
+            await ffmpeg.writeFile(inputFileName, uint8Array);
+            console.log('File written to FFmpeg filesystem');
+        } catch (error) {
+            console.error('Error writing file to FFmpeg filesystem:', error);
+            throw new Error('Failed to write file to FFmpeg filesystem');
+        }
+    } else {
+        console.log('Reusing input file already in MEMFS');
     }
     
     // Process video with optimized settings for browser (lower memory usage)
@@ -736,9 +740,9 @@ async function generateBatch(file, variationCount) {
     // Load buffer once (Phase 3 infrastructure)
     const buffer = await loadVideoBuffer(file);
 
-    // Write to MEMFS once
+    // Write to MEMFS once (copy buffer because writeFile transfers/neuters the original)
     await loadFFmpeg();
-    await ffmpeg.writeFile('input.mp4', buffer);
+    await ffmpeg.writeFile('input.mp4', new Uint8Array(buffer));
 
     // Generate unique effect combinations
     const effects = generateUniqueEffects(variationCount);
@@ -770,7 +774,8 @@ async function generateBatch(file, variationCount) {
                 buffer,                    // preloadedBuffer: reuse buffer
                 isLastVariation,           // cleanupInput: only on last
                 effects[i],                // unique effect parameters
-                variationIndex             // for filename
+                variationIndex,            // for filename
+                true                       // inputAlreadyInMemfs: skip redundant write
             );
 
             results.push(result);
