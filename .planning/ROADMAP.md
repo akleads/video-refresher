@@ -75,10 +75,11 @@ Plans:
   4. User can cancel batch processing mid-operation and partial work stops cleanly
   5. All processed variations follow naming pattern: originalname_var1_abc123.mp4
   6. First completed variation displays in preview area for quality check
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: [To be determined during planning]
+- [ ] 04-01-PLAN.md — Batch logic foundations: unique effect generator, variation filename formatter, and processVideo extension
+- [ ] 04-02-PLAN.md — Batch UI controls, orchestration with cancellation, progress tracking, and end-to-end verification
 
 ### Phase 5: ZIP Download
 **Goal**: All batch variations downloadable as single ZIP file
@@ -104,5 +105,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 1. FFmpeg.wasm Upgrade | 2/2 | Complete | 2026-02-07 |
 | 2. Memory Management | 2/2 | Complete | 2026-02-06 |
 | 3. Performance Optimization | 1/1 | Complete | 2026-02-06 |
-| 4. Core Batch Generation | 0/TBD | Not started | - |
+| 4. Core Batch Generation | 0/2 | Not started | - |
 | 5. ZIP Download | 0/TBD | Not started | - |
