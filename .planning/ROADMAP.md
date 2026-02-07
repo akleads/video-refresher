@@ -90,10 +90,10 @@ Plans:
   2. ZIP file uses STORE compression (no re-compression of video data)
   3. ZIP download triggered with single click after batch completes
   4. All blob URLs cleaned up after ZIP download completes
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 05-01: [To be determined during planning]
+- [ ] 05-01-PLAN.md — JSZip integration with STORE compression, "Download All as ZIP" button, blob URL cleanup
 
 ## Progress
 
@@ -106,4 +106,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 | 2. Memory Management | 2/2 | Complete | 2026-02-06 |
 | 3. Performance Optimization | 1/1 | Complete | 2026-02-06 |
 | 4. Core Batch Generation | 2/2 | Complete | 2026-02-06 |
-| 5. ZIP Download | 0/TBD | Not started | - |
+| 5. ZIP Download | 0/1 | Not started | - |
