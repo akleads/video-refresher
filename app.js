@@ -442,6 +442,48 @@ async function loadVideoBuffer(file) {
     return new Uint8Array(arrayBuffer);
 }
 
+function randomInRange(min, max) {
+    return min + Math.random() * (max - min);
+}
+
+function generateUniqueEffects(count) {
+    const effects = [];
+    const seen = new Set();
+    const maxAttempts = count * 100;
+    let attempts = 0;
+
+    while (effects.length < count && attempts < maxAttempts) {
+        attempts++;
+
+        // Generate effect with consistent property order for JSON.stringify deduplication
+        const effect = {
+            rotation: parseFloat(randomInRange(0.001, 0.01).toFixed(4)),
+            brightness: parseFloat(randomInRange(-0.05, 0.05).toFixed(4)),
+            contrast: parseFloat(randomInRange(0.95, 1.05).toFixed(4)),
+            saturation: parseFloat(randomInRange(0.95, 1.05).toFixed(4))
+        };
+
+        const key = JSON.stringify(effect);
+        if (!seen.has(key)) {
+            seen.add(key);
+            effects.push(effect);
+        }
+    }
+
+    if (effects.length < count) {
+        throw new Error(`Unable to generate ${count} unique effect combinations. Generated ${effects.length} after ${maxAttempts} attempts.`);
+    }
+
+    console.log(`Generated ${count} unique effect combinations in ${attempts} attempts`);
+    return effects;
+}
+
+function formatVariationFilename(originalName, variationIndex) {
+    const baseName = originalName.replace(/\.mp4$/i, '');
+    const uniqueID = generateUniqueID();
+    return `${baseName}_var${variationIndex}_${uniqueID}.mp4`;
+}
+
 async function processVideo(file, preloadedBuffer = null, cleanupInput = true) {
     const statusText = document.getElementById('processingStatus');
     
