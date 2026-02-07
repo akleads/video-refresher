@@ -389,7 +389,7 @@ async function processVideo(file) {
     console.log('Writing file to FFmpeg filesystem...');
     
     try {
-        ffmpeg.FS('writeFile', inputFileName, uint8Array);
+        await ffmpeg.writeFile(inputFileName, uint8Array);
         console.log('File written to FFmpeg filesystem');
     } catch (error) {
         console.error('Error writing file to FFmpeg filesystem:', error);
@@ -444,7 +444,7 @@ async function processVideo(file) {
         // - Good quality presets
         // - Balanced for quality and memory
         
-        await ffmpeg.run(
+        await ffmpeg.exec([
             '-i', inputFileName,
             '-vf', 'rotate=0.00349,eq=brightness=0.01:contrast=1.01:saturation=1.01',
             '-r', '29.97',
@@ -454,7 +454,7 @@ async function processVideo(file) {
             '-pix_fmt', 'yuv420p',    // Ensure compatibility
             '-movflags', '+faststart', // Fast start for web playback
             outputFileName
-        );
+        ]);
         console.log('FFmpeg processing completed');
     } catch (error) {
         console.error('FFmpeg processing error:', error);
@@ -473,8 +473,8 @@ async function processVideo(file) {
     // Read processed file
     statusText.textContent = 'Finalizing...';
     updateProgress(95, 'Finalizing...');
-    
-    const data = ffmpeg.FS('readFile', outputFileName);
+
+    const data = await ffmpeg.readFile(outputFileName);
     
     // Create blob and display
     const blob = new Blob([data.buffer], { type: 'video/mp4' });
@@ -505,8 +505,8 @@ async function processVideo(file) {
     
     // Cleanup FFmpeg filesystem
     try {
-        ffmpeg.FS('unlink', inputFileName);
-        ffmpeg.FS('unlink', outputFileName);
+        await ffmpeg.deleteFile(inputFileName);
+        await ffmpeg.deleteFile(outputFileName);
     } catch (e) {
         console.warn('Cleanup warning:', e);
     }
