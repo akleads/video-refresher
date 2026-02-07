@@ -26,12 +26,12 @@
 
 ### Download
 
-- [ ] **DL-01**: All variations downloadable as single ZIP file via JSZip
-- [ ] **DL-02**: ZIP uses STORE compression (no re-compression of video data)
+- [x] **DL-01**: All variations downloadable as single ZIP file via JSZip
+- [x] **DL-02**: ZIP uses STORE compression (no re-compression of video data)
 
 ### Performance
 
-- [ ] **PERF-01**: FFmpeg.wasm upgraded from 0.11.6 to 0.12.x for multi-threading support
+- [x] **PERF-01**: FFmpeg.wasm upgraded from 0.11.6 to 0.12.x for multi-threading support
 - [x] **PERF-02**: Encoding uses ultrafast preset for ~30% speed improvement
 - [x] **PERF-03**: Input video buffer read once and reused across all variations
 
@@ -73,8 +73,8 @@
 | BATCH-04 | Phase 4 | Complete |
 | PROG-01 | Phase 4 | Complete |
 | PROG-02 | Phase 4 | Complete |
-| DL-01 | Phase 5 | Pending |
-| DL-02 | Phase 5 | Pending |
+| DL-01 | Phase 5 | Complete |
+| DL-02 | Phase 5 | Complete |
 
 **Coverage:**
 - v1 requirements: 15 total
