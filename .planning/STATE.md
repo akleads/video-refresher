@@ -9,29 +9,29 @@ See: .planning/PROJECT.md (updated 2026-02-06)
 
 ## Current Position
 
-Phase: 2 of 5 (Memory Management) — In progress
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-07 — Completed 02-01-PLAN.md
+Phase: 2 of 5 (Memory Management) — Complete
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-06 — Completed 02-02-PLAN.md
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: 5 min
-- Total execution time: 0.25 hours
+- Total execution time: 0.33 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-ffmpeg-wasm-upgrade | 2 | 13min | 7min |
-| 02-memory-management | 1 | 2min | 2min |
+| 02-memory-management | 2 | 7min | 4min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (1min), 01-02 (12min), 02-01 (2min)
+- Last 5 plans: 01-01 (1min), 01-02 (12min), 02-01 (2min), 02-02 (5min)
 - Trend: Fully autonomous plans execute faster than human-verify checkpoints
 
 *Updated after each plan completion*
@@ -53,6 +53,9 @@ Recent decisions affecting current work:
 - Cap processedVideos at 20 entries (Balances memory usage with user experience for desktop/mobile middle ground)
 - Revoke original video blob URL when new video uploaded (Original only needed for preview until next upload)
 - Use simple eviction function instead of class (Transparent implementation, minimal abstraction for single use case)
+- Recover FFmpeg instance on corruption errors but don't auto-retry failed operation (Defer retry logic to Phase 4 batch processing context)
+- Detect corruption via error message pattern matching (Corruption manifests in specific error messages: abort, OOM, RuntimeError)
+- Re-attach event handlers during recovery (Maintain progress/log tracking after FFmpeg instance replacement)
 
 ### Pending Todos
 
@@ -67,9 +70,10 @@ None yet.
 - ✓ Self-hosted class worker resolves CORS issue
 - ✓ End-to-end verified: upload → process → preview → download
 
-**Phase 2: IN PROGRESS**
+**Phase 2: COMPLETE**
 - ✓ 02-01 complete: BlobURLRegistry + bounded processedVideos with eviction
-- Next: 02-02 FFmpeg instance recovery + memory stability verification
+- ✓ 02-02 complete: FFmpeg instance recovery + memory stability verified across 10 operations
+- Ready for Phase 3: Effects library can safely use multiple FFmpeg operations per video
 
 **Phase 4 Considerations:**
 - Effect uniqueness threshold unclear — how different must variations be for ad platforms?
@@ -77,6 +81,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 (Phase 2 in progress)
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-02-06 (Phase 2 complete)
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
