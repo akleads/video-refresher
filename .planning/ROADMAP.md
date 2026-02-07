@@ -12,7 +12,7 @@ This roadmap transforms the existing single-video processing tool into a batch v
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: FFmpeg.wasm Upgrade** - Modernize FFmpeg.wasm to 0.12.x for multi-threading and better memory management
+- [x] **Phase 1: FFmpeg.wasm Upgrade** - Modernize FFmpeg.wasm to 0.12.x for multi-threading and better memory management
 - [ ] **Phase 2: Memory Management** - Fix memory leaks and establish cleanup infrastructure for batch stability
 - [ ] **Phase 3: Performance Optimization** - Optimize encoding settings and buffer reuse for efficient batch processing
 - [ ] **Phase 4: Core Batch Generation** - Build variation count input, unique effect combinations, and batch progress tracking
@@ -32,8 +32,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — FFmpeg 0.12.x initialization with SharedArrayBuffer detection and COOP/COEP header verification
-- [ ] 01-02-PLAN.md — Migrate processVideo() to 0.12.x async API and verify end-to-end processing
+- [x] 01-01-PLAN.md — FFmpeg 0.12.x initialization with SharedArrayBuffer detection and COOP/COEP header verification
+- [x] 01-02-PLAN.md — Migrate processVideo() to 0.12.x async API and verify end-to-end processing
 
 ### Phase 2: Memory Management
 **Goal**: Memory leaks eliminated and cleanup infrastructure established for batch stability
@@ -100,7 +100,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. FFmpeg.wasm Upgrade | 0/2 | Planning complete | - |
+| 1. FFmpeg.wasm Upgrade | 2/2 | Complete | 2026-02-07 |
 | 2. Memory Management | 0/TBD | Not started | - |
 | 3. Performance Optimization | 0/TBD | Not started | - |
 | 4. Core Batch Generation | 0/TBD | Not started | - |
