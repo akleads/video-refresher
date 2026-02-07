@@ -1,0 +1,17 @@
+.git
+.gitignore
+.planning
+node_modules
+*.md
+README*
+DEPLOYMENT*
+server.py
+wrangler.toml
+_headers
+_redirects
+app.js
+index.html
+styles.css
+ffmpeg-worker.js
+server/node_modules
+server/.env
