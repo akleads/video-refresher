@@ -32,8 +32,8 @@
 ### Performance
 
 - [ ] **PERF-01**: FFmpeg.wasm upgraded from 0.11.6 to 0.12.x for multi-threading support
-- [ ] **PERF-02**: Encoding uses ultrafast preset for ~30% speed improvement
-- [ ] **PERF-03**: Input video buffer read once and reused across all variations
+- [x] **PERF-02**: Encoding uses ultrafast preset for ~30% speed improvement
+- [x] **PERF-03**: Input video buffer read once and reused across all variations
 
 ## v2 Requirements
 
@@ -65,8 +65,8 @@
 | MEM-02 | Phase 2 | Complete |
 | MEM-03 | Phase 2 | Complete |
 | MEM-04 | Phase 2 | Complete |
-| PERF-02 | Phase 3 | Pending |
-| PERF-03 | Phase 3 | Pending |
+| PERF-02 | Phase 3 | Complete |
+| PERF-03 | Phase 3 | Complete |
 | BATCH-01 | Phase 4 | Pending |
 | BATCH-02 | Phase 4 | Pending |
 | BATCH-03 | Phase 4 | Pending |
