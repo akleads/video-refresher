@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
-import { createTables } from './schema.js';
+import { createTables, migrateSchema } from './schema.js';
 
 export function initDatabase(dbPath) {
   // Ensure directory exists
@@ -18,6 +18,7 @@ export function initDatabase(dbPath) {
 
   // Run schema migrations
   createTables(db);
+  migrateSchema(db);
 
   return db;
 }

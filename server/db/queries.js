@@ -20,6 +20,71 @@ export function createJobQueries(db) {
 
     listJobs: db.prepare(`
       SELECT * FROM jobs ORDER BY created_at DESC LIMIT 50
+    `),
+
+    // Progress tracking
+    updateFileProgress: db.prepare(`
+      UPDATE job_files SET progress_percent = ?, updated_at = datetime('now') WHERE id = ?
+    `),
+
+    updateFileStatus: db.prepare(`
+      UPDATE job_files SET status = ?, updated_at = datetime('now') WHERE id = ?
+    `),
+
+    updateFileDuration: db.prepare(`
+      UPDATE job_files SET duration_seconds = ? WHERE id = ?
+    `),
+
+    updateFilePid: db.prepare(`
+      UPDATE job_files SET ffmpeg_pid = ? WHERE id = ?
+    `),
+
+    updateFileError: db.prepare(`
+      UPDATE job_files SET status = 'failed', error = ?, updated_at = datetime('now') WHERE id = ?
+    `),
+
+    incrementFileVariations: db.prepare(`
+      UPDATE job_files SET completed_variations = completed_variations + 1 WHERE id = ?
+    `),
+
+    // Job status updates
+    updateJobStatus: db.prepare(`
+      UPDATE jobs SET status = ?, updated_at = datetime('now') WHERE id = ?
+    `),
+
+    updateJobError: db.prepare(`
+      UPDATE jobs SET status = 'failed', error = ?, updated_at = datetime('now') WHERE id = ?
+    `),
+
+    // Output files
+    insertOutputFile: db.prepare(`
+      INSERT INTO output_files (id, job_id, job_file_id, variation_index, output_path, file_size)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `),
+
+    getOutputFiles: db.prepare(`
+      SELECT * FROM output_files WHERE job_id = ?
+    `),
+
+    getOutputFilesByJobFile: db.prepare(`
+      SELECT * FROM output_files WHERE job_file_id = ?
+    `),
+
+    // Recovery queries
+    getProcessingJobs: db.prepare(`
+      SELECT * FROM jobs WHERE status = 'processing'
+    `),
+
+    getFilesWithPid: db.prepare(`
+      SELECT * FROM job_files WHERE ffmpeg_pid IS NOT NULL
+    `),
+
+    clearFilePid: db.prepare(`
+      UPDATE job_files SET ffmpeg_pid = NULL WHERE id = ?
+    `),
+
+    getNextQueuedJob: db.prepare(`
+      SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1
     `)
   };
 }
