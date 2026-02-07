@@ -1,5 +1,6 @@
 import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.14/+esm';
 import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/+esm';
+import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 
 function supportsMultiThreading() {
     return typeof SharedArrayBuffer !== 'undefined' && crossOriginIsolated === true;
@@ -825,6 +826,117 @@ async function generateBatch(file, variationCount) {
     return results;
 }
 
+async function downloadAllAsZip() {
+    // Guard: if no processed videos, return early (button shouldn't be visible)
+    if (processedVideos.length === 0) {
+        return;
+    }
+
+    // Get DOM references
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    const zipStatus = document.getElementById('zipStatus');
+
+    try {
+        // Disable button, show status
+        if (downloadAllBtn) downloadAllBtn.disabled = true;
+        if (zipStatus) {
+            zipStatus.textContent = 'Preparing ZIP...';
+            zipStatus.style.display = 'block';
+        }
+
+        // Create ZIP instance
+        const zip = new JSZip();
+
+        // Loop through processedVideos and add to ZIP
+        for (let i = 0; i < processedVideos.length; i++) {
+            const video = processedVideos[i];
+
+            // Update status
+            if (zipStatus) {
+                zipStatus.textContent = `Adding file ${i + 1}/${processedVideos.length}...`;
+            }
+
+            // Fetch blob from blob URL
+            const response = await fetch(video.processedURL);
+            const blob = await response.blob();
+
+            // Add to ZIP with STORE compression (no compression)
+            zip.file(video.processedName, blob, { compression: "STORE" });
+        }
+
+        // Generate ZIP blob with progress feedback
+        if (zipStatus) {
+            zipStatus.textContent = 'Creating ZIP: 0%';
+        }
+
+        const zipBlob = await zip.generateAsync(
+            { type: "blob", compression: "STORE" },
+            (metadata) => {
+                // Update progress
+                if (zipStatus) {
+                    zipStatus.textContent = `Creating ZIP: ${Math.round(metadata.percent)}%`;
+                }
+            }
+        );
+
+        // Create blob URL for ZIP (ephemeral, don't use blobRegistry)
+        const zipURL = URL.createObjectURL(zipBlob);
+
+        // Derive ZIP filename from first video
+        const firstVideo = processedVideos[0];
+        const baseName = firstVideo.originalName.replace(/\.mp4$/i, '');
+        const zipFilename = `${baseName}_variations.zip`;
+
+        // Create anchor and trigger download
+        const a = document.createElement('a');
+        a.href = zipURL;
+        a.download = zipFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // After 500ms, revoke ZIP blob URL
+        setTimeout(() => {
+            URL.revokeObjectURL(zipURL);
+        }, 500);
+
+        // Revoke all variation blob URLs
+        for (const video of processedVideos) {
+            blobRegistry.revoke(video.processedURL);
+        }
+
+        // Clear processedVideos array
+        processedVideos = [];
+
+        // Update UI to clear the grid
+        updateProcessedVideosList();
+
+        // Hide the download-all button
+        if (downloadAllBtn) downloadAllBtn.style.display = 'none';
+
+        // Update status: success
+        if (zipStatus) {
+            zipStatus.textContent = 'ZIP downloaded successfully!';
+            setTimeout(() => {
+                zipStatus.style.display = 'none';
+            }, 3000);
+        }
+
+    } catch (error) {
+        console.error('ZIP download error:', error);
+        if (zipStatus) {
+            zipStatus.textContent = `Error creating ZIP: ${error.message}`;
+            zipStatus.style.display = 'block';
+        }
+    } finally {
+        // Re-enable button
+        if (downloadAllBtn) downloadAllBtn.disabled = false;
+    }
+}
+
+// Expose function on window for onclick
+window.downloadAllAsZip = downloadAllAsZip;
+
 // Update the list of all processed videos
 function updateProcessedVideosList() {
     const processedVideosSection = document.getElementById('processedVideosSection');
@@ -861,6 +973,12 @@ function updateProcessedVideosList() {
     
     html += '</div>';
     processedVideosList.innerHTML = html;
+
+    // Show/hide "Download All as ZIP" button
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    if (downloadAllBtn) {
+        downloadAllBtn.style.display = processedVideos.length > 1 ? 'inline-block' : 'none';
+    }
 }
 
 // Download a specific processed video

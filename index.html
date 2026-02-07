@@ -60,6 +60,12 @@
 
             <div class="processed-videos-section" id="processedVideosSection" style="display: none;">
                 <h3>All Processed Videos</h3>
+                <div class="download-all-container">
+                    <button id="downloadAllBtn" class="download-all-btn" onclick="downloadAllAsZip()" style="display: none;">
+                        Download All as ZIP
+                    </button>
+                    <p id="zipStatus" class="zip-status" style="display: none;"></p>
+                </div>
                 <div id="processedVideosList" class="processed-videos-list"></div>
             </div>
 

@@ -432,6 +432,43 @@ summary:hover {
     color: #495057;
 }
 
+/* ZIP download */
+.download-all-container {
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.download-all-btn {
+    padding: 12px 2rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.05em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.download-all-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.download-all-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.zip-status {
+    margin-top: 0.5rem;
+    font-size: 0.9em;
+    color: #667eea;
+    font-weight: 500;
+}
+
 footer {
     background: #f8f9fa;
     padding: 20px;
