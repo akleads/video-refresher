@@ -1,0 +1,17 @@
+{
+  "name": "video-refresher-api",
+  "version": "2.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch --env-file=.env index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.0",
+    "multer": "^2.0.2",
+    "better-sqlite3": "^12.6.0",
+    "nanoid": "^5.0.0",
+    "cors": "^2.8.5"
+  }
+}
