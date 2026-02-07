@@ -436,7 +436,13 @@ async function handleFile(file) {
     updateQueueUI();
 }
 
-async function processVideo(file) {
+async function loadVideoBuffer(file) {
+    console.log('Loading video buffer...');
+    const arrayBuffer = await file.arrayBuffer();
+    return new Uint8Array(arrayBuffer);
+}
+
+async function processVideo(file, preloadedBuffer = null, cleanupInput = true) {
     const statusText = document.getElementById('processingStatus');
     
     console.log('Starting processVideo for file:', file.name);
@@ -458,10 +464,17 @@ async function processVideo(file) {
     statusText.textContent = 'Loading video file...';
     updateProgress(5, 'Loading video file...');
     console.log('Reading file as array buffer...');
-    
+
     // Read file as array buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    let uint8Array;
+    if (preloadedBuffer) {
+        uint8Array = preloadedBuffer;
+        console.log('Reusing preloaded buffer');
+    } else {
+        const arrayBuffer = await file.arrayBuffer();
+        uint8Array = new Uint8Array(arrayBuffer);
+        console.log('Reading new buffer');
+    }
     console.log('File loaded, size:', uint8Array.length);
     
     // Generate output filename
@@ -487,50 +500,20 @@ async function processVideo(file) {
     statusText.textContent = 'Processing video... This may take several minutes.';
     updateProgress(20, 'Processing video...');
     console.log('Starting FFmpeg processing...');
-    
+
     try {
-        // Determine encoding settings based on file size
-        // Optimized for speed while maintaining good quality for files up to 100MB
-        const fileSizeMB = file.size / (1024 * 1024);
-        let encodingSettings;
-        
-        if (fileSizeMB < 30) {
-            // Small files (< 30MB): Balance quality and speed
-            encodingSettings = [
-                '-b:v', '2500k',      // Good bitrate for quality
-                '-bufsize', '5000k',
-                '-maxrate', '3000k',
-                '-preset', 'fast',    // Faster preset for speed
-                '-crf', '22',         // Good quality
-            ];
-            console.log('Using fast quality settings for small file');
-        } else if (fileSizeMB < 60) {
-            // Medium-small files (30-60MB): Balanced for speed
-            encodingSettings = [
-                '-b:v', '2000k',      // Good bitrate
-                '-bufsize', '4000k',
-                '-maxrate', '2500k',
-                '-preset', 'fast',    // Fast preset
-                '-crf', '23',         // Good quality
-            ];
-            console.log('Using balanced settings for medium-small file');
-        } else {
-            // Medium files (60-100MB): Prioritize speed
-            encodingSettings = [
-                '-b:v', '1800k',      // Good bitrate for reasonable quality
-                '-bufsize', '3600k',
-                '-maxrate', '2200k',
-                '-preset', 'veryfast', // Fastest reasonable preset
-                '-crf', '24',         // Good quality
-            ];
-            console.log('Using speed-optimized settings for medium file');
-        }
-        
-        // Optimized settings for browser processing (up to 100MB):
-        // - High quality bitrates
-        // - Good quality presets
-        // - Balanced for quality and memory
-        
+        // Unified encoding: ultrafast preset for maximum speed (Phase 3 optimization)
+        // CRF 23 maintains acceptable quality; bitrate cap prevents excessive file size
+        const encodingSettings = [
+            '-b:v', '2000k',
+            '-bufsize', '4000k',
+            '-maxrate', '2500k',
+            '-preset', 'ultrafast',
+            '-crf', '23',
+        ];
+        console.log('Using ultrafast encoding settings');
+
+        const processingStartTime = performance.now();
         await ffmpeg.exec([
             '-i', inputFileName,
             '-vf', 'rotate=0.00349,eq=brightness=0.01:contrast=1.01:saturation=1.01',
@@ -543,6 +526,9 @@ async function processVideo(file) {
             outputFileName
         ]);
         console.log('FFmpeg processing completed');
+        const processingEndTime = performance.now();
+        const processingTimeSec = ((processingEndTime - processingStartTime) / 1000).toFixed(2);
+        console.log(`FFmpeg encoding completed in ${processingTimeSec}s`);
     } catch (error) {
         console.error('FFmpeg processing error:', error);
         console.error('Error details:', error.message, error.stack);
@@ -600,8 +586,10 @@ async function processVideo(file) {
     
     // Cleanup FFmpeg filesystem
     try {
-        await ffmpeg.deleteFile(inputFileName);
         await ffmpeg.deleteFile(outputFileName);
+        if (cleanupInput) {
+            await ffmpeg.deleteFile(inputFileName);
+        }
     } catch (e) {
         console.warn('Cleanup warning:', e);
     }
