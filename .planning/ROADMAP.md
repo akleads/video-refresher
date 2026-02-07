@@ -24,7 +24,7 @@ Phases 1-5 delivered browser-based batch video variation generator with FFmpeg.w
 - Integer phases (6, 7, 8, 9): Planned milestone work
 - Decimal phases (e.g. 7.1): Urgent insertions if needed
 
-- [ ] **Phase 6: Backend Foundation** - API server, database, auth, upload, and Fly.io deployment
+- [x] **Phase 6: Backend Foundation** - API server, database, auth, upload, and Fly.io deployment
 - [ ] **Phase 7: FFmpeg Processing Engine** - Server-side video processing with native FFmpeg
 - [ ] **Phase 8: Download, Cleanup, and Job Lifecycle** - ZIP download, storage management, expiry, and graceful shutdown
 - [ ] **Phase 9: Frontend Integration** - Replace client-side FFmpeg.wasm with API client
@@ -44,9 +44,9 @@ Phases 1-5 delivered browser-based batch video variation generator with FFmpeg.w
 **Plans**: 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Server foundation: Express 5 app, SQLite database, auth system, health endpoint
-- [ ] 06-02-PLAN.md -- Jobs API: multi-file upload with Multer, job creation, job status queries
-- [ ] 06-03-PLAN.md -- Deployment: Dockerfile, fly.toml, deploy to Fly.io, verify live endpoints
+- [x] 06-01-PLAN.md -- Server foundation: Express 5 app, SQLite database, auth system, health endpoint
+- [x] 06-02-PLAN.md -- Jobs API: multi-file upload with Multer, job creation, job status queries
+- [x] 06-03-PLAN.md -- Deployment: Dockerfile, fly.toml, deploy to Fly.io, verify live endpoints
 
 ### Phase 7: FFmpeg Processing Engine
 **Goal**: Uploaded videos are processed into variations using native FFmpeg with the same random effects as v1, with progress tracking and error handling per video -- the core value of v2.
@@ -104,7 +104,7 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-5 | v1.0 | 8/8 | Complete | 2026-02-07 |
-| 6. Backend Foundation | v2.0 | 0/3 | Planning complete | - |
+| 6. Backend Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 7. FFmpeg Processing Engine | v2.0 | 0/TBD | Not started | - |
 | 8. Download, Cleanup, Job Lifecycle | v2.0 | 0/TBD | Not started | - |
 | 9. Frontend Integration | v2.0 | 0/TBD | Not started | - |

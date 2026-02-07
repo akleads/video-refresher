@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
-**Current focus:** Phase 6 - Backend Foundation
+**Current focus:** Phase 7 - FFmpeg Processing Engine
 
 ## Current Position
 
-Phase: 6 of 9 (Backend Foundation) -- first phase of v2.0 milestone
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 06-02-PLAN.md
+Phase: 7 of 9 (FFmpeg Processing Engine) -- second phase of v2.0 milestone
+Plan: 0 of TBD in current phase
+Status: Ready to plan
+Last activity: 2026-02-07 -- Phase 6 complete, verified, deployed to Fly.io
 
-Progress: [=======---] 69% (9 of 13+ plans complete)
+Progress: [=======---] 69% (11 of 16 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [=======---] 69% (9 of 13+ plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 2
-- Average duration: 2.3 min
-- Phases: 6-9 (4 phases, 3+ plans known)
+- Total plans completed: 3
+- Average duration: 3.2 min
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans)
 
 *Updated after each plan completion*
 
@@ -59,10 +59,11 @@ None yet.
 ### Blockers/Concerns
 
 - FFmpeg filter parity: native FFmpeg 7.x may differ from FFmpeg.wasm (5-6.x). Needs testing in Phase 7.
+- Deployed FFmpeg version is 5.1.8 (Debian bookworm), not 7.x — may reduce filter parity concerns.
 
 ## Session Continuity
 
-Last session: 2026-02-07 20:09 UTC
-Stopped at: Completed 06-02-PLAN.md (Jobs API with multi-file upload, job status/list queries)
+Last session: 2026-02-07
+Stopped at: Phase 6 complete, all 3 plans executed, verified (17/17 must-haves), deployed to Fly.io
 Resume file: None
-Next: 06-03-PLAN.md (Deployment with Dockerfile and fly.toml)
+Next: Plan Phase 7 (FFmpeg Processing Engine)

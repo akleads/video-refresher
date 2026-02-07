@@ -9,17 +9,17 @@ Requirements for server-side multi-video processing milestone. Each maps to road
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Backend deploys to Fly.io as Docker container with Node.js 22 + native FFmpeg
-- [ ] **INFRA-02**: Express 5 API server with REST endpoints for jobs, auth, and downloads
-- [ ] **INFRA-03**: SQLite database on 3GB Fly Volume for job tracking and session state
-- [ ] **INFRA-04**: Shared password authentication with bearer token sessions
-- [ ] **INFRA-05**: CORS configuration for Cloudflare Pages frontend
+- [x] **INFRA-01**: Backend deploys to Fly.io as Docker container with Node.js 22 + native FFmpeg
+- [x] **INFRA-02**: Express 5 API server with REST endpoints for jobs, auth, and downloads
+- [x] **INFRA-03**: SQLite database on 3GB Fly Volume for job tracking and session state
+- [x] **INFRA-04**: Shared password authentication with bearer token sessions
+- [x] **INFRA-05**: CORS configuration for Cloudflare Pages frontend
 
 ### Processing
 
-- [ ] **PROC-01**: User can upload multiple MP4 source videos in a single batch
+- [x] **PROC-01**: User can upload multiple MP4 source videos in a single batch
 - [ ] **PROC-02**: Server processes videos with native FFmpeg using same random effects as v1
-- [ ] **PROC-03**: In-process job queue backed by SQLite (no Redis)
+- [x] **PROC-03**: In-process job queue backed by SQLite (no Redis)
 - [ ] **PROC-04**: Job status endpoint with per-video progress percentage
 - [ ] **PROC-05**: Fire-and-forget -- jobs continue processing after browser tab closes
 - [ ] **PROC-06**: Job recovery on server restart (interrupted jobs marked and retryable)
@@ -75,14 +75,14 @@ Deferred to post-v2.0 milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 6 | Pending |
-| INFRA-02 | Phase 6 | Pending |
-| INFRA-03 | Phase 6 | Pending |
-| INFRA-04 | Phase 6 | Pending |
-| INFRA-05 | Phase 6 | Pending |
-| PROC-01 | Phase 6 | Pending |
+| INFRA-01 | Phase 6 | Complete |
+| INFRA-02 | Phase 6 | Complete |
+| INFRA-03 | Phase 6 | Complete |
+| INFRA-04 | Phase 6 | Complete |
+| INFRA-05 | Phase 6 | Complete |
+| PROC-01 | Phase 6 | Complete |
 | PROC-02 | Phase 7 | Pending |
-| PROC-03 | Phase 6 | Pending |
+| PROC-03 | Phase 6 | Complete |
 | PROC-04 | Phase 7 | Pending |
 | PROC-05 | Phase 7 | Pending |
 | PROC-06 | Phase 7 | Pending |
@@ -108,4 +108,4 @@ Deferred to post-v2.0 milestones.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after roadmap creation*
+*Last updated: 2026-02-07 after Phase 6 completion*
