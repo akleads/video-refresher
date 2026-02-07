@@ -155,8 +155,22 @@ function updateProgress(percent, text) {
 let processingQueue = [];
 let isProcessing = false;
 
-// Store all processed videos
+// Store all processed videos (bounded to prevent unbounded memory growth)
+const MAX_PROCESSED_VIDEOS = 20;
 let processedVideos = [];
+
+// Add processed video with automatic eviction when limit reached
+function addProcessedVideo(videoInfo) {
+    processedVideos.push(videoInfo);
+
+    if (processedVideos.length > MAX_PROCESSED_VIDEOS) {
+        const evicted = processedVideos.shift();
+        blobRegistry.revoke(evicted.processedURL);
+        console.log('Evicted oldest processed video, revoked blob URL');
+    }
+
+    updateProcessedVideosList();
+}
 
 // Initialize event listeners when DOM is ready
 function initializeUploadHandlers() {
@@ -540,10 +554,7 @@ async function processVideo(file) {
         date: new Date().toLocaleString()
     };
     
-    processedVideos.push(processedVideoInfo);
-    
-    // Update the processed videos list
-    updateProcessedVideosList();
+    addProcessedVideo(processedVideoInfo);
     
     updateProgress(100, 'Processing complete!');
     
