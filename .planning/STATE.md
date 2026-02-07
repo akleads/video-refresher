@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-06)
 
 **Core value:** Upload one video creative, get multiple unique variations ready for ad platform rotation — fast and without leaving the browser.
-**Current focus:** Phase 4 - Core Batch Generation (Phases 1-3 complete)
+**Current focus:** Phase 5 - ZIP Download (ALL PHASES COMPLETE)
 
 ## Current Position
 
-Phase: 4 of 5 (Core Batch Generation) — In progress
-Plan: 2 of 2 in current phase
-Status: Plan 04-02 complete
-Last activity: 2026-02-07 — Completed 04-02-PLAN.md
+Phase: 5 of 5 (ZIP Download) — Complete
+Plan: 1 of 1 in current phase
+Status: Plan 05-01 complete
+Last activity: 2026-02-07 — Completed 05-01-PLAN.md
 
-Progress: [███████░░░] 70%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 4.4 min
-- Total execution time: 0.52 hours
+- Total plans completed: 8
+- Average duration: 4.8 min
+- Total execution time: 0.64 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [███████░░░] 70%
 | 02-memory-management | 2 | 7min | 4min |
 | 03-performance-optimization | 1 | 8min | 8min |
 | 04-core-batch-generation | 2 | 6min | 3min |
+| 05-zip-download | 1 | 12min | 12min |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (5min), 03-01 (8min), 04-01 (2min), 04-02 (4min)
-- Trend: Pure logic/function tasks complete quickly; plans with human-verify checkpoints take longer but are still fast
+- Last 5 plans: 03-01 (8min), 04-01 (2min), 04-02 (4min), 05-01 (12min)
+- Trend: 05-01 took longer due to bug discovery during human verification (ArrayBuffer neutering in batch generation)
 
 *Updated after each plan completion*
 
@@ -73,10 +74,13 @@ Recent decisions affecting current work:
 - Load buffer once before batch loop via loadVideoBuffer() and ffmpeg.writeFile() (Eliminate N-1 redundant file operations)
 - Display first completed variation in preview area immediately (Early quality feedback before batch completes)
 - Preserve partial results on cancellation (User keeps all completed variations when stopping mid-batch)
+- Use STORE compression for ZIP (videos already H.264 compressed, re-compression wastes CPU)
+- Copy buffer before ffmpeg.writeFile to prevent ArrayBuffer neutering from postMessage transfer
+- Add inputAlreadyInMemfs parameter to skip redundant MEMFS writes in batch loop
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
@@ -90,24 +94,22 @@ None yet.
 **Phase 2: COMPLETE**
 - ✓ 02-01 complete: BlobURLRegistry + bounded processedVideos with eviction
 - ✓ 02-02 complete: FFmpeg instance recovery + memory stability verified across 10 operations
-- Ready for Phase 3: Effects library can safely use multiple FFmpeg operations per video
 
 **Phase 3: COMPLETE**
 - ✓ 03-01 complete: Ultrafast encoding preset + buffer reuse infrastructure
-- Ready for Phase 4: Batch processing infrastructure prepared (loadVideoBuffer, preloadedBuffer, cleanupInput parameters)
 
 **Phase 4: COMPLETE**
 - ✓ 04-01 complete: Batch logic foundations (generateUniqueEffects, formatVariationFilename, extended processVideo)
 - ✓ 04-02 complete: Batch UI and orchestration (variation count input, generateBatch orchestrator, cancellation)
-- Ready for Phase 5: ZIP download for bulk variations
-- Decisions made:
-  - Orchestration-layer cancellation using shared flag between variations (FFmpeg.wasm can't abort mid-encoding)
-  - Sequential batch processing to avoid FFmpeg conflicts and CPU thrashing
-  - Buffer reuse pattern: single loadVideoBuffer() + MEMFS write before loop
-  - First variation preview for early quality check
+- ✓ ArrayBuffer neutering bug fixed (writeFile transfers buffer via postMessage, neutering original)
+
+**Phase 5: COMPLETE**
+- ✓ 05-01 complete: JSZip integration with STORE compression, Download All as ZIP button, blob URL cleanup
+- All v1 requirements satisfied
+- Ready for milestone completion
 
 ## Session Continuity
 
-Last session: 2026-02-07 (Phase 4 complete)
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-02-07 (Phase 5 complete — all phases done)
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
