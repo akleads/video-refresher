@@ -59,10 +59,10 @@ Plans:
   1. Video encoding uses ultrafast preset by default
   2. Input video file read once and buffer reused for multiple operations
   3. Processing time per video reduced by ~30% compared to baseline (measured with sample video)
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 03-01: [To be determined during planning]
+- [ ] 03-01-PLAN.md — Ultrafast encoding preset, buffer reuse infrastructure, and performance timing
 
 ### Phase 4: Core Batch Generation
 **Goal**: User can generate multiple unique variations from single upload with progress tracking
