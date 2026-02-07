@@ -1,7 +1,7 @@
 # Requirements: Video Refresher v2.0
 
 **Defined:** 2026-02-07
-**Core Value:** Upload video creatives, get multiple unique variations ready for ad platform rotation — fast, without waiting at the screen.
+**Core Value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
 
 ## v2.0 Requirements
 
@@ -21,7 +21,7 @@ Requirements for server-side multi-video processing milestone. Each maps to road
 - [ ] **PROC-02**: Server processes videos with native FFmpeg using same random effects as v1
 - [ ] **PROC-03**: In-process job queue backed by SQLite (no Redis)
 - [ ] **PROC-04**: Job status endpoint with per-video progress percentage
-- [ ] **PROC-05**: Fire-and-forget — jobs continue processing after browser tab closes
+- [ ] **PROC-05**: Fire-and-forget -- jobs continue processing after browser tab closes
 - [ ] **PROC-06**: Job recovery on server restart (interrupted jobs marked and retryable)
 
 ### Storage
@@ -75,37 +75,37 @@ Deferred to post-v2.0 milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | TBD | Pending |
-| INFRA-02 | TBD | Pending |
-| INFRA-03 | TBD | Pending |
-| INFRA-04 | TBD | Pending |
-| INFRA-05 | TBD | Pending |
-| PROC-01 | TBD | Pending |
-| PROC-02 | TBD | Pending |
-| PROC-03 | TBD | Pending |
-| PROC-04 | TBD | Pending |
-| PROC-05 | TBD | Pending |
-| PROC-06 | TBD | Pending |
-| STOR-01 | TBD | Pending |
-| STOR-02 | TBD | Pending |
-| STOR-03 | TBD | Pending |
-| STOR-04 | TBD | Pending |
-| DOWN-01 | TBD | Pending |
-| DOWN-02 | TBD | Pending |
-| DOWN-03 | TBD | Pending |
-| FEND-01 | TBD | Pending |
-| FEND-02 | TBD | Pending |
-| FEND-03 | TBD | Pending |
-| FEND-04 | TBD | Pending |
-| FEND-05 | TBD | Pending |
-| FEND-06 | TBD | Pending |
-| FEND-07 | TBD | Pending |
+| INFRA-01 | Phase 6 | Pending |
+| INFRA-02 | Phase 6 | Pending |
+| INFRA-03 | Phase 6 | Pending |
+| INFRA-04 | Phase 6 | Pending |
+| INFRA-05 | Phase 6 | Pending |
+| PROC-01 | Phase 6 | Pending |
+| PROC-02 | Phase 7 | Pending |
+| PROC-03 | Phase 6 | Pending |
+| PROC-04 | Phase 7 | Pending |
+| PROC-05 | Phase 7 | Pending |
+| PROC-06 | Phase 7 | Pending |
+| STOR-01 | Phase 8 | Pending |
+| STOR-02 | Phase 8 | Pending |
+| STOR-03 | Phase 8 | Pending |
+| STOR-04 | Phase 8 | Pending |
+| DOWN-01 | Phase 8 | Pending |
+| DOWN-02 | Phase 8 | Pending |
+| DOWN-03 | Phase 8 | Pending |
+| FEND-01 | Phase 9 | Pending |
+| FEND-02 | Phase 9 | Pending |
+| FEND-03 | Phase 9 | Pending |
+| FEND-04 | Phase 9 | Pending |
+| FEND-05 | Phase 9 | Pending |
+| FEND-06 | Phase 9 | Pending |
+| FEND-07 | Phase 9 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 25 total
-- Mapped to phases: 0 (awaiting roadmap)
-- Unmapped: 25
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after initial definition*
+*Last updated: 2026-02-07 after roadmap creation*

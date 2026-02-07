@@ -76,7 +76,7 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 
 - **Platform**: Fly.io for backend, Cloudflare Pages for frontend (or co-host on Fly)
 - **Cost**: Keep hosting costs low — small Fly machine + volume (~$5-10/month)
-- **Storage**: 1GB total cap for processed videos + 24-hour auto-expiry
+- **Storage**: 3GB Fly Volume for processed videos + 24-hour auto-expiry
 - **File format**: MP4 input and output only
 - **Auth**: Shared password — no user management complexity
 - **Team size**: Small team (< 10 people), no need for per-user quotas
