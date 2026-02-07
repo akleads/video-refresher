@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
+import { createJobsRouter } from './routes/jobs.js';
 import { errorHandler } from './middleware/error.js';
 import { initDatabase } from './db/index.js';
 import { createJobQueries } from './db/queries.js';
@@ -57,9 +58,13 @@ app.use(express.json());
 app.locals.db = db;
 app.locals.queries = queries;
 
+// Create jobs router
+const jobsRouter = createJobsRouter(db, queries);
+
 // Routes
 app.use('/api/health', healthRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/jobs', jobsRouter);
 
 // Error handler (must be last)
 app.use(errorHandler);
