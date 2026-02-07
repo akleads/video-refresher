@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 6 of 9 (Backend Foundation) -- first phase of v2.0 milestone
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 06-01-PLAN.md
+Last activity: 2026-02-07 -- Completed 06-02-PLAN.md
 
-Progress: [======----] 60% (8 of 13+ plans complete)
+Progress: [=======---] 69% (9 of 13+ plans complete)
 
 ## Performance Metrics
 
@@ -24,8 +24,8 @@ Progress: [======----] 60% (8 of 13+ plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 1
-- Average duration: 3.1 min
+- Total plans completed: 2
+- Average duration: 2.3 min
 - Phases: 6-9 (4 phases, 3+ plans known)
 
 *Updated after each plan completion*
@@ -48,6 +48,9 @@ Recent decisions affecting current work:
 | 06-01-hmac | HMAC tokens instead of JWT | 06-01 | No external claims needed, simpler, zero deps |
 | 06-01-wal | Enable SQLite WAL mode | 06-01 | Concurrent reads during writes, prevents SQLITE_BUSY |
 | 06-01-local | Use ./data for local dev | 06-01 | No Fly Volume locally, fallback to relative path |
+| 06-02-disk | Multer DiskStorage to UPLOAD_DIR | 06-02 | Direct to Fly Volume, avoids /tmp RAM disk |
+| 06-02-clamp | Variations clamped to 1-20 range | 06-02 | Prevents resource exhaustion from excessive variations |
+| 06-02-factory | Factory function for jobs router | 06-02 | Dependency injection for db and queries |
 
 ### Pending Todos
 
@@ -59,7 +62,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07 20:04 UTC
-Stopped at: Completed 06-01-PLAN.md (Server foundation with Express 5, SQLite, auth)
+Last session: 2026-02-07 20:09 UTC
+Stopped at: Completed 06-02-PLAN.md (Jobs API with multi-file upload, job status/list queries)
 Resume file: None
-Next: 06-02-PLAN.md (Jobs API with multi-file upload)
+Next: 06-03-PLAN.md (Deployment with Dockerfile and fly.toml)
