@@ -18,11 +18,11 @@ Requirements for server-side multi-video processing milestone. Each maps to road
 ### Processing
 
 - [x] **PROC-01**: User can upload multiple MP4 source videos in a single batch
-- [ ] **PROC-02**: Server processes videos with native FFmpeg using same random effects as v1
+- [x] **PROC-02**: Server processes videos with native FFmpeg using same random effects as v1
 - [x] **PROC-03**: In-process job queue backed by SQLite (no Redis)
-- [ ] **PROC-04**: Job status endpoint with per-video progress percentage
-- [ ] **PROC-05**: Fire-and-forget -- jobs continue processing after browser tab closes
-- [ ] **PROC-06**: Job recovery on server restart (interrupted jobs marked and retryable)
+- [x] **PROC-04**: Job status endpoint with per-video progress percentage
+- [x] **PROC-05**: Fire-and-forget -- jobs continue processing after browser tab closes
+- [x] **PROC-06**: Job recovery on server restart (interrupted jobs marked and retryable)
 
 ### Storage
 
@@ -81,11 +81,11 @@ Deferred to post-v2.0 milestones.
 | INFRA-04 | Phase 6 | Complete |
 | INFRA-05 | Phase 6 | Complete |
 | PROC-01 | Phase 6 | Complete |
-| PROC-02 | Phase 7 | Pending |
+| PROC-02 | Phase 7 | Complete |
 | PROC-03 | Phase 6 | Complete |
-| PROC-04 | Phase 7 | Pending |
-| PROC-05 | Phase 7 | Pending |
-| PROC-06 | Phase 7 | Pending |
+| PROC-04 | Phase 7 | Complete |
+| PROC-05 | Phase 7 | Complete |
+| PROC-06 | Phase 7 | Complete |
 | STOR-01 | Phase 8 | Pending |
 | STOR-02 | Phase 8 | Pending |
 | STOR-03 | Phase 8 | Pending |
@@ -108,4 +108,4 @@ Deferred to post-v2.0 milestones.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after Phase 6 completion*
+*Last updated: 2026-02-07 after Phase 7 completion*
