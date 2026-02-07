@@ -12,6 +12,44 @@ function generateUniqueID() {
     return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
+// Blob URL lifecycle management
+class BlobURLRegistry {
+    constructor() {
+        this.urls = new Map();
+    }
+
+    register(blob, metadata = {}) {
+        const url = URL.createObjectURL(blob);
+        this.urls.set(url, {
+            ...metadata,
+            created: new Date().toISOString()
+        });
+        return url;
+    }
+
+    revoke(url) {
+        if (this.urls.has(url)) {
+            URL.revokeObjectURL(url);
+            this.urls.delete(url);
+        }
+    }
+
+    revokeAll() {
+        for (const url of this.urls.keys()) {
+            URL.revokeObjectURL(url);
+        }
+        this.urls.clear();
+    }
+}
+
+const blobRegistry = new BlobURLRegistry();
+
+// Revoke all blob URLs before page unload
+window.addEventListener('beforeunload', () => blobRegistry.revokeAll());
+
+// Track current original video URL for revocation
+let currentOriginalURL = null;
+
 // Initialize FFmpeg
 let ffmpeg = null;
 let ffmpegLoaded = false;
@@ -315,8 +353,12 @@ async function handleFile(file) {
         }
     }
     
-    // Display original video
-    const originalURL = URL.createObjectURL(file);
+    // Display original video - revoke old URL before creating new one
+    if (currentOriginalURL) {
+        blobRegistry.revoke(currentOriginalURL);
+    }
+    const originalURL = blobRegistry.register(file, { type: 'original' });
+    currentOriginalURL = originalURL;
     originalVideo.src = originalURL;
     originalName.textContent = `${file.name} (${fileSizeMB} MB)`;
     
@@ -480,7 +522,7 @@ async function processVideo(file) {
     
     // Create blob and display
     const blob = new Blob([data.buffer], { type: 'video/mp4' });
-    const processedURL = URL.createObjectURL(blob);
+    const processedURL = blobRegistry.register(blob, { type: 'processed' });
     
     const processedVideo = document.getElementById('processedVideo');
     
