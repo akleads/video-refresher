@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 7 of 9 (FFmpeg Processing Engine) -- second phase of v2.0 milestone
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-07 -- Phase 6 complete, verified, deployed to Fly.io
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-07 -- Completed 07-01-PLAN.md
 
-Progress: [=======---] 69% (11 of 16 plans complete)
+Progress: [========--] 75% (12 of 16 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [=======---] 69% (11 of 16 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 3
-- Average duration: 3.2 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans)
+- Total plans completed: 4
+- Average duration: 3.0 min
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 in progress with 1 plan)
 
 *Updated after each plan completion*
 
@@ -51,6 +51,10 @@ Recent decisions affecting current work:
 | 06-02-disk | Multer DiskStorage to UPLOAD_DIR | 06-02 | Direct to Fly Volume, avoids /tmp RAM disk |
 | 06-02-clamp | Variations clamped to 1-20 range | 06-02 | Prevents resource exhaustion from excessive variations |
 | 06-02-factory | Factory function for jobs router | 06-02 | Dependency injection for db and queries |
+| 07-01-pid | Store FFmpeg pid in SQLite | 07-01 | Enables zombie process cleanup on restart |
+| 07-01-probe | Return 0 from getVideoDuration on failure | 07-01 | Allows encoding without progress tracking |
+| 07-01-stderr | Collect last 20 stderr lines for errors | 07-01 | Debug context without full log storage |
+| 07-01-migrate | try/catch for idempotent schema migrations | 07-01 | SQLite lacks ALTER IF NOT EXISTS |
 
 ### Pending Todos
 
@@ -63,7 +67,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Phase 6 complete, all 3 plans executed, verified (17/17 must-haves), deployed to Fly.io
+Last session: 2026-02-07 21:50:54 UTC
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None
-Next: Plan Phase 7 (FFmpeg Processing Engine)
+Next: Execute 07-02-PLAN.md (processor and queue worker)
