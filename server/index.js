@@ -8,6 +8,7 @@ import { createJobsRouter } from './routes/jobs.js';
 import { errorHandler } from './middleware/error.js';
 import { initDatabase } from './db/index.js';
 import { createJobQueries } from './db/queries.js';
+import { JobQueueWorker } from './lib/queue.js';
 
 const PORT = process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -40,6 +41,9 @@ verifyVolume();
 const db = initDatabase(DB_PATH);
 const queries = createJobQueries(db);
 
+// Create queue worker
+const worker = new JobQueueWorker(db, queries, OUTPUT_DIR);
+
 const app = express();
 
 // CORS configuration
@@ -69,8 +73,90 @@ app.use('/api/jobs', jobsRouter);
 // Error handler (must be last)
 app.use(errorHandler);
 
+function recoverInterruptedJobs(db, queries) {
+  const stuckJobs = queries.getProcessingJobs.all();
+  for (const job of stuckJobs) {
+    console.log(`Recovery: marking interrupted job ${job.id} as failed`);
+    queries.updateJobError.run('Server restarted during processing', job.id);
+    const files = queries.getJobFiles.all(job.id);
+    for (const file of files) {
+      if (file.status === 'processing') {
+        queries.updateFileError.run('Server restarted during processing', file.id);
+      }
+    }
+  }
+
+  // Kill orphaned FFmpeg processes -- uses SIGKILL (not SIGTERM) because these
+  // are orphaned from a previous server run with no parent managing them
+  const filesWithPid = queries.getFilesWithPid.all();
+  for (const file of filesWithPid) {
+    try {
+      process.kill(file.ffmpeg_pid, 0);
+      console.log(`Recovery: killing orphaned FFmpeg process ${file.ffmpeg_pid}`);
+      process.kill(file.ffmpeg_pid, 'SIGKILL');
+    } catch (err) {
+      if (err.code !== 'ESRCH') {
+        console.error(`Recovery: error checking pid ${file.ffmpeg_pid}:`, err.message);
+      }
+    }
+    queries.clearFilePid.run(file.id);
+  }
+
+  if (stuckJobs.length > 0 || filesWithPid.length > 0) {
+    console.log(`Recovery: processed ${stuckJobs.length} stuck jobs, ${filesWithPid.length} orphaned processes`);
+  }
+}
+
+async function gracefulShutdown(signal) {
+  console.log(`${signal} received, shutting down gracefully...`);
+  worker.stop();
+
+  const filesWithPid = queries.getFilesWithPid.all();
+  for (const file of filesWithPid) {
+    try {
+      process.kill(file.ffmpeg_pid, 'SIGTERM');
+      console.log(`Shutdown: sent SIGTERM to FFmpeg pid ${file.ffmpeg_pid}`);
+    } catch (err) {
+      if (err.code !== 'ESRCH') {
+        console.error(`Shutdown: error killing pid ${file.ffmpeg_pid}:`, err.message);
+      }
+    }
+    queries.clearFilePid.run(file.id);
+  }
+
+  const currentJobId = worker.getCurrentJobId();
+  if (currentJobId) {
+    try {
+      queries.updateJobError.run(`Server shutdown (${signal})`, currentJobId);
+      const files = queries.getJobFiles.all(currentJobId);
+      for (const file of files) {
+        if (file.status === 'processing') {
+          queries.updateFileError.run(`Server shutdown (${signal})`, file.id);
+        }
+      }
+    } catch (err) {
+      console.error('Shutdown: error marking job failed:', err.message);
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 2000));
+  const remainingPids = queries.getFilesWithPid.all();
+  for (const file of remainingPids) {
+    try { process.kill(file.ffmpeg_pid, 'SIGKILL'); } catch (err) { /* ignore */ }
+  }
+
+  db.close();
+  console.log('Shutdown complete');
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
   console.log(`Data directory: ${DATA_DIR}`);
   console.log(`Database: ${DB_PATH}`);
+  recoverInterruptedJobs(db, queries);
+  worker.start();
 });
