@@ -1,38 +1,44 @@
-app = "video-refresher-api"
-primary_region = "iad"
-kill_signal = "SIGTERM"
-kill_timeout = 30
+# fly.toml app configuration file generated for video-refresher-api on 2026-02-07T12:13:40-08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'video-refresher-api'
+primary_region = 'iad'
+kill_signal = 'SIGTERM'
+kill_timeout = '30s'
 
 [build]
 
 [env]
-  NODE_ENV = "production"
-  PORT = "8080"
-  DATA_DIR = "/data"
-  DB_PATH = "/data/video-refresher.db"
-  UPLOAD_DIR = "/data/uploads"
-  OUTPUT_DIR = "/data/output"
+  DATA_DIR = '/data'
+  DB_PATH = '/data/video-refresher.db'
+  NODE_ENV = 'production'
+  OUTPUT_DIR = '/data/output'
+  PORT = '8080'
+  UPLOAD_DIR = '/data/uploads'
+
+[[mounts]]
+  source = 'vr_data'
+  destination = '/data'
+  initial_size = '3GB'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
 
-[[http_service.checks]]
-  grace_period = "10s"
-  interval = "30s"
-  timeout = "5s"
-  method = "GET"
-  path = "/api/health"
-
-[mounts]
-  source = "vr_data"
-  destination = "/data"
-  initial_size = "3GB"
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/api/health'
 
 [[vm]]
-  memory = "512MB"
-  cpu_kind = "shared"
+  memory = '512MB'
+  cpu_kind = 'shared'
   cpus = 2
+  memory_mb = 512
