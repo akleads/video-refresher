@@ -41,11 +41,12 @@ Phases 1-5 delivered browser-based batch video variation generator with FFmpeg.w
   3. User can query a job status endpoint with the job ID and see per-video entries in the response (status: queued)
   4. The server is live on Fly.io with a 3GB volume, Docker container runs Node.js 22 + FFmpeg binary, and the health endpoint responds
   5. All uploaded files are written to the Fly Volume (not /tmp), and SQLite database persists across server restarts
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md -- Server foundation: Express 5 app, SQLite database, auth system, health endpoint
+- [ ] 06-02-PLAN.md -- Jobs API: multi-file upload with Multer, job creation, job status queries
+- [ ] 06-03-PLAN.md -- Deployment: Dockerfile, fly.toml, deploy to Fly.io, verify live endpoints
 
 ### Phase 7: FFmpeg Processing Engine
 **Goal**: Uploaded videos are processed into variations using native FFmpeg with the same random effects as v1, with progress tracking and error handling per video -- the core value of v2.
@@ -103,7 +104,7 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 1-5 | v1.0 | 8/8 | Complete | 2026-02-07 |
-| 6. Backend Foundation | v2.0 | 0/TBD | Not started | - |
+| 6. Backend Foundation | v2.0 | 0/3 | Planning complete | - |
 | 7. FFmpeg Processing Engine | v2.0 | 0/TBD | Not started | - |
 | 8. Download, Cleanup, Job Lifecycle | v2.0 | 0/TBD | Not started | - |
 | 9. Frontend Integration | v2.0 | 0/TBD | Not started | - |
