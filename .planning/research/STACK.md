@@ -1,614 +1,390 @@
-# Technology Stack: Server-Side Multi-Video Processing on Fly.io
+# Technology Stack: v3.0 Hybrid Processing & Job Cancellation
 
-**Project:** Video Refresher v2.0 -- Server-Side Migration
+**Project:** Video Refresher v3.0
+**Research Focus:** Stack additions for hybrid client/server processing and job cancellation
 **Researched:** 2026-02-07
-**Context:** Moving from client-side FFmpeg.wasm to server-side native FFmpeg on Fly.io with multi-video batch support, SQLite job tracking, and fire-and-forget UX.
 
-## Existing Stack (Retain)
+## Overview
 
-These are validated from v1 and carry forward. DO NOT re-evaluate.
+v3.0 adds two new capabilities to the existing v2.0 server-side architecture:
 
-| Technology | Version | Role | Notes |
-|------------|---------|------|-------|
-| Vanilla JS + HTML/CSS | - | Frontend | 1,785 LOC, no build step |
-| FFmpeg.wasm | 0.12.14 | Client-side fallback (optional) | May keep as offline mode |
-| Cloudflare Pages | - | Frontend hosting | Static site with COOP/COEP headers |
-| JSZip | 3.10.1 | Client-side ZIP (may shift to server) | Retain for now |
+1. **Client-side processing option** - Re-introduce FFmpeg.wasm for device-side video processing
+2. **Job cancellation** - Kill in-progress server FFmpeg processes on user request
+
+This document covers ONLY the stack additions/changes needed for these features. The existing v2.0 stack (Express 5, better-sqlite3, native FFmpeg, Cloudflare Pages) remains unchanged.
 
 ---
 
-## Recommended Server-Side Stack
+## Client-Side Processing Stack
 
-### Runtime: Node.js 22 LTS
+### Core: FFmpeg.wasm 0.12.x
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Node.js | 22.x LTS (Jod) | Server runtime | Current LTS, maintained until April 2027. Built-in WebSocket client, 30% faster startup than Node 20. Stable watch mode for dev. |
+| Package | Version | Purpose | Integration Point |
+|---------|---------|---------|------------------|
+| `@ffmpeg/ffmpeg` | **0.12.15** (latest) | Main FFmpeg.wasm library | Frontend ES modules (CDN) |
+| `@ffmpeg/util` | **0.12.2** | Utilities (fetchFile, toBlobURL) | Frontend ES modules (CDN) |
+| `@ffmpeg/core-mt` | **0.12.10** | Multi-threaded core | Loaded when SharedArrayBuffer available |
+| `@ffmpeg/core-st` | **0.12.10** | Single-threaded core | Fallback when COOP/COEP missing |
 
-**Why Node.js 22 specifically:**
-- Active LTS since Oct 2024, will be in maintenance from Oct 2025, EOL April 2027 -- plenty of runway
-- Native `fetch`, `WebSocket`, and Web Streams APIs built-in
-- `node --watch` is stable (no nodemon needed for dev)
-- Project already uses JS ecosystem; staying on Node avoids learning a new runtime
+**Why FFmpeg.wasm 0.12.15:**
+- Already validated in v1.0 (used 0.12.14, current is 0.12.15)
+- Only 0.12.x version change since v1.0 was bug fixes (no breaking changes)
+- Multi-threading support with SharedArrayBuffer (10x faster than single-threaded)
+- jsdelivr CDN proven reliable for wasm module delivery
+- Self-hosting worker required (CDN blob URLs break ES module imports)
 
-**Why NOT Bun:**
-- Fly.io has better Node.js support and documentation
-- Bun's SQLite driver has feature gaps vs better-sqlite3 (missing affected row count from `run()`, missing `rowid` returns)
-- Node.js is the safer choice for a Docker + Fly.io deployment
-- Not worth the risk for marginal performance gains in a CPU-bound FFmpeg workload
+**Installation:**
+```html
+<!-- Import from jsdelivr CDN -->
+<script type="module">
+  import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/+esm';
+  import { fetchFile, toBlobURL } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.2/+esm';
+</script>
+```
 
-**Confidence:** HIGH -- verified Node.js 22 LTS release schedule via official sources.
+**Memory Transfer Gotcha (critical):**
+v1.0 discovery: `ffmpeg.writeFile()` uses `postMessage` with transferable ArrayBuffers, which **neuters** the original buffer. Always pass `new Uint8Array(buffer)` when the buffer needs reuse. See commit 8cbd4b3.
+
+**Confidence:** HIGH - v1.0 validated with 0.12.14, 0.12.15 is latest stable release.
+
+**Sources:**
+- [@ffmpeg/ffmpeg npm](https://www.npmjs.com/package/@ffmpeg/ffmpeg) - Version 0.12.15 confirmed
+- [FFmpeg.wasm GitHub Releases](https://github.com/ffmpegwasm/ffmpeg.wasm/releases) - Release history
+
+### ZIP Generation: JSZip
+
+| Library | Version | Purpose | Integration Point |
+|---------|---------|---------|------------------|
+| JSZip | **3.10.1** (latest) | Browser ZIP generation | Frontend ES modules (CDN) |
+
+**Why JSZip 3.10.1:**
+- Already validated in v1.0
+- Mature library (last update 2022, stable API)
+- STORE compression mode (no re-compression of H.264 video)
+- Stream-friendly for large file handling
+- No better alternatives for browser-side ZIP
+
+**Installation:**
+```html
+<script type="module">
+  import JSZip from 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
+</script>
+```
+
+**Confidence:** HIGH - v1.0 validated, no breaking changes.
+
+**Source:** [jszip npm](https://www.npmjs.com/package/jszip) - 3.10.1 confirmed
+
+### Cross-Origin Isolation: COOP/COEP Headers
+
+**Requirement:** SharedArrayBuffer (for multi-threaded FFmpeg.wasm) requires cross-origin isolation.
+
+**Implementation:** Cloudflare Pages `_headers` file
+
+```
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+```
+
+**Why `_headers` file:**
+- Native Cloudflare Pages feature (no Workers needed)
+- Applies to all static assets automatically
+- Already exists in project (was removed in v2.0, needs restoration)
+
+**Confidence:** HIGH - Official Cloudflare Pages documentation confirms support.
+
+**Source:** [Cloudflare Pages Headers Documentation](https://developers.cloudflare.com/pages/configuration/headers/)
+
+### What NOT to Add
+
+| Library | Why Not |
+|---------|---------|
+| Service worker COOP/COEP patches | Unnecessary - Cloudflare Pages `_headers` works natively |
+| Separate build tools (Webpack, Vite) | Vanilla JS ES modules work directly, no bundling needed |
+| WebAssembly polyfills | Target is modern browsers only (SharedArrayBuffer support) |
+| Separate wasm hosting | jsdelivr CDN proven reliable in v1.0 |
 
 ---
 
-### HTTP Framework: Express 5.x
+## Server-Side Job Cancellation Stack
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Express | 5.x (latest 5.2.1) | HTTP server, API routing | Mature file upload ecosystem, async error handling, battle-tested |
+### Process Management
 
-**Why Express 5 over Hono:**
+No new dependencies needed. Node.js built-ins are sufficient.
 
-This is a deliberate pragmatic choice. Hono is faster and lighter, but this project needs reliable large file uploads to disk. The tradeoffs:
+**Current implementation (v2.0):**
+- `child_process.spawn()` for FFmpeg processes
+- PID stored in `job_files.current_ffmpeg_pid` column (SQLite)
+- Process handle returned from `spawnFFmpeg()` function
 
-| Criterion | Express 5 | Hono |
-|-----------|-----------|------|
-| File upload to disk | Multer -- mature, stream-to-disk, battle-tested | parseBody() loads files into memory; disk streaming requires third-party `hono-upload` or `@hono-storage/node-disk` |
-| Multipart streaming | Multer wraps busboy, handles backpressure correctly | Need extra packages for memory-efficient uploads |
-| Community patterns for video processing | Extensive examples with FFmpeg + child_process | Very few examples for heavy file processing |
-| Performance | ~15K req/s | ~25K req/s |
-| Async error handling | Built-in in v5 (rejected promises auto-forwarded) | Built-in |
+**What's needed for cancellation:**
+1. Kill FFmpeg process by PID
+2. Clean up partial output files
+3. Update job status to 'cancelled'
 
-**The performance difference is irrelevant here.** This server handles maybe 5-10 concurrent users uploading videos. The bottleneck is FFmpeg CPU processing, not HTTP routing speed. Express wins on ecosystem maturity for the specific workload (large file uploads + background processing).
+### Option 1: `process.kill()` + stdin 'q' (Recommended)
 
-**Why NOT Fastify:** Similar maturity to Express but adds complexity (schema validation, plugin system) that's unnecessary for a simple API with 5-6 endpoints. Express 5 closes the gap on async error handling, which was Fastify's main advantage.
+**Approach:** Use Node.js built-in `process.kill()` with graceful 'q' command to FFmpeg stdin.
 
-**Confidence:** HIGH -- Express 5.x stable release verified, 5.2.1 is latest.
+**Rationale:**
+- Zero new dependencies
+- FFmpeg gracefully closes files when sent 'q' to stdin
+- `process.kill(pid, 'SIGTERM')` for forceful fallback
+- Two-stage shutdown: try graceful, then forceful after timeout
 
----
-
-### File Upload: Multer
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| multer | 1.4.x | Multipart file upload handling | Streams files to disk, configurable storage, file size limits, battle-tested with Express |
-
-**Why Multer:**
-- Streams uploaded files directly to disk (DiskStorage engine) -- critical for video files that can be 100MB+
-- Built-in file size limiting (`limits.fileSize`)
-- Built-in file count limiting (`limits.files`)
-- Integrates seamlessly with Express as middleware
-- Handles multiple file uploads (`upload.array('videos', 10)`)
-
-**Configuration pattern:**
+**Implementation pattern:**
 ```javascript
-const upload = multer({
-  storage: multer.diskStorage({
-    destination: '/data/uploads',
-    filename: (req, file, cb) => cb(null, `${nanoid()}-${file.originalname}`)
-  }),
-  limits: { fileSize: 500 * 1024 * 1024 }, // 500MB per file
-  fileFilter: (req, file, cb) => {
-    cb(null, file.mimetype === 'video/mp4');
+// Graceful: Write 'q' to stdin (FFmpeg interactive quit)
+ffmpegProcess.stdin.write('q\n');
+
+// Forceful fallback after 5s timeout
+setTimeout(() => {
+  if (ffmpegProcess.exitCode === null) {
+    process.kill(pid, 'SIGTERM');
   }
-});
+}, 5000);
 ```
 
-**Why NOT busboy directly:** Multer wraps busboy with Express-friendly middleware patterns. No reason to go lower-level.
+**Why this works:**
+- FFmpeg recognizes 'q' as interactive quit command
+- Allows FFmpeg to close output file properly (avoid corruption)
+- SIGTERM as fallback for stuck processes
+- Node.js `process.kill()` is built-in (no deps)
 
-**Confidence:** HIGH -- Multer is the standard Express file upload middleware, actively maintained.
+**Confidence:** HIGH - Confirmed by Node.js FFmpeg community patterns.
 
----
+**Sources:**
+- [How to gently terminate FFmpeg](https://forums.raspberrypi.com/viewtopic.php?t=284030)
+- [Recommended way to kill process (fluent-ffmpeg)](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg/issues/138)
 
-### Video Processing: Native FFmpeg via child_process
+### Option 2: tree-kill (Alternative)
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| FFmpeg | 7.x (Alpine/Debian package) | Native video processing | 10-50x faster than FFmpeg.wasm, full feature set, no memory limits |
-| child_process (Node built-in) | - | Spawn FFmpeg processes | Zero dependencies, full control over args and stdio |
+**Package:** `tree-kill@1.2.2`
 
-**Why native FFmpeg via child_process, NOT fluent-ffmpeg:**
+**What it does:** Kills process tree (parent + all children) with signal support.
 
-fluent-ffmpeg was **archived on May 22, 2025** and marked deprecated on npm. Do not use it for new projects.
+**Why consider it:**
+- Handles child processes spawned by FFmpeg (e.g., if FFmpeg spawns sub-processes)
+- Works across platforms (Windows, Linux, macOS)
+- Lightweight (no dependencies)
 
-The maintained fork `@ts-ffmpeg/fluent-ffmpeg` (v2.2.6) exists but adds an abstraction layer that's unnecessary here. The FFmpeg commands are already defined in the v1 codebase as argument arrays -- translating them to `child_process.spawn` calls is trivial.
+**Why NOT recommended for v3.0:**
+- FFmpeg typically doesn't spawn sub-processes in this use case
+- Built-in `process.kill()` is sufficient for single FFmpeg child process
+- Adds dependency for edge case that likely won't occur
+- Can add later if real-world usage shows FFmpeg spawning sub-processes
 
-**Pattern:**
+**If needed later:**
+```bash
+npm install tree-kill@1.2.2
+```
+
 ```javascript
-import { spawn } from 'node:child_process';
-
-function runFFmpeg(args) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('ffmpeg', args);
-    proc.stderr.on('data', (data) => {
-      // Parse progress from stderr (time= field)
-    });
-    proc.on('close', (code) => {
-      code === 0 ? resolve() : reject(new Error(`FFmpeg exit ${code}`));
-    });
-  });
-}
+import kill from 'tree-kill';
+kill(pid, 'SIGTERM');
 ```
 
-**Progress parsing from stderr:**
-FFmpeg writes progress to stderr in the format `time=00:00:05.23`. Parse this against total duration to compute percentage.
+**Confidence:** MEDIUM - Useful for complex scenarios, but overkill for current needs.
 
-**Why NOT a wrapper library:**
-- fluent-ffmpeg: Archived/deprecated
-- @ts-ffmpeg/fluent-ffmpeg: Extra dependency for minimal benefit
-- The v1 effect pipeline already builds FFmpeg filter strings -- just pass them as args to spawn
+**Source:** [tree-kill npm](https://www.npmjs.com/package//tree-kill)
 
-**Confidence:** HIGH -- fluent-ffmpeg deprecation verified via GitHub/npm. child_process is stable Node.js API.
+### Database Schema (Already Exists)
 
----
+v2.0 already tracks FFmpeg PIDs in `job_files` table:
 
-### Database: better-sqlite3
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| better-sqlite3 | 12.6.x (latest 12.6.2) | Job tracking, session management | Synchronous API (simpler for job queue), zero-cost file-based DB, lives on Fly Volume |
-
-**Why better-sqlite3:**
-- Synchronous API is actually better for a job queue -- no callback soup, simpler error handling
-- Fastest SQLite library for Node.js
-- Well-maintained (v12.6.2 published Jan 17, 2026)
-- Full feature set: WAL mode, user-defined functions, prepared statements
-- Lives as a single file on the Fly Volume alongside video files
-
-**Schema sketch:**
 ```sql
-CREATE TABLE jobs (
-  id TEXT PRIMARY KEY,        -- nanoid
-  password_hash TEXT NOT NULL, -- bcrypt hash of session password
-  status TEXT DEFAULT 'pending', -- pending/processing/done/failed
-  created_at INTEGER NOT NULL,
-  completed_at INTEGER,
-  total_variations INTEGER,
-  completed_variations INTEGER DEFAULT 0,
-  error TEXT
-);
-
-CREATE TABLE source_files (
-  id TEXT PRIMARY KEY,
-  job_id TEXT REFERENCES jobs(id),
-  original_name TEXT,
-  file_path TEXT,             -- path on volume
-  variations_requested INTEGER
-);
-
-CREATE TABLE output_files (
-  id TEXT PRIMARY KEY,
-  job_id TEXT REFERENCES jobs(id),
-  source_file_id TEXT REFERENCES source_files(id),
-  file_path TEXT,
-  variation_index INTEGER,
-  effects_applied TEXT        -- JSON of effects
-);
+current_ffmpeg_pid INTEGER DEFAULT NULL
 ```
 
-**Why NOT Prisma/Drizzle/Knex:**
-- Overkill for 3 tables with simple queries
-- Adds build steps, generated clients, migration tooling
-- Raw SQL with better-sqlite3 prepared statements is simpler and faster
-- No ORM abstraction needed for `SELECT * FROM jobs WHERE id = ?`
-
-**Confidence:** HIGH -- version 12.6.2 verified, library actively maintained.
+**No schema changes needed.** Cancellation logic can:
+1. Query `job_files.current_ffmpeg_pid` for active job
+2. Call `process.kill(pid, 'SIGTERM')`
+3. Update `job_files.status = 'cancelled'`
+4. Delete partial output files
 
 ---
 
-### Job Queue: In-Process (No Redis)
+## Integration Strategy
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Custom in-process queue | - | Sequential video processing | Single machine, <10 users, SQLite tracks state -- Redis would be over-engineering |
+### Client-Side Processing Flow
 
-**Why NOT BullMQ:**
-- BullMQ requires Redis. Adding Redis to a $5/month Fly.io deployment doubles infrastructure complexity and cost.
-- This is a single-machine deployment with <10 concurrent users
-- SQLite already tracks job state (pending/processing/done/failed)
-- Jobs survive restarts because state is in SQLite, not in-memory
-- FFmpeg processing is CPU-bound; no benefit from distributed workers
+1. User toggles "Process on device" on upload page
+2. Frontend loads FFmpeg.wasm (CDN import)
+3. Process videos in browser (same effects as v1.0)
+4. Generate ZIP with JSZip (same as v1.0)
+5. Download ZIP directly (no API call)
 
-**Pattern:**
+**Code reuse:** v1.0 client-side code can be largely reused. Key files from commit 8cbd4b3:
+- `app.js` - FFmpeg.wasm initialization, progress handling
+- `ffmpeg-worker.js` - Worker for multi-threaded mode (self-hosted)
+
+**New code needed:**
+- Toggle UI component
+- Conditional routing (device vs server flow)
+- Progress display unification (match v2.0 UX)
+
+### Server-Side Cancellation Flow
+
+1. User clicks "Cancel" on job detail page
+2. Frontend calls `DELETE /api/jobs/:jobId` endpoint
+3. Server queries `job_files.current_ffmpeg_pid` for job
+4. Server writes 'q' to FFmpeg stdin (graceful shutdown)
+5. Server waits 5s, then sends SIGTERM if still running
+6. Server deletes partial output files
+7. Server updates job status to 'cancelled'
+
+**New API endpoint:**
+```
+DELETE /api/jobs/:jobId
+Authorization: Bearer <token>
+Response: 200 { message: "Job cancelled" }
+```
+
+**New server code:**
+- `routes/jobs.js` - DELETE handler
+- `lib/cancellation.js` - Process kill + cleanup logic
+
+---
+
+## Version Summary
+
+### Frontend (No Changes to Dependencies)
+
+FFmpeg.wasm and JSZip are loaded via CDN (no package.json changes).
+
+### Backend (No New Dependencies)
+
+| Package | Current Version | v3.0 Version | Change |
+|---------|----------------|--------------|--------|
+| express | 5.2.0 | 5.2.0 | No change |
+| better-sqlite3 | 12.6.0 | 12.6.0 | No change |
+| archiver | 7.0.1 | 7.0.1 | No change |
+| cors | 2.8.5 | 2.8.5 | No change |
+| multer | 2.0.2 | 2.0.2 | No change |
+| nanoid | 5.0.0 | 5.0.0 | No change |
+
+**No `npm install` needed for v3.0.**
+
+Process cancellation uses Node.js built-ins (`child_process`, `process.kill()`).
+
+---
+
+## Configuration Changes
+
+### Cloudflare Pages: `_headers` File
+
+**Current state (v2.0):**
+```
+# Cloudflare Pages custom headers
+# COOP/COEP removed - no longer needed without FFmpeg.wasm SharedArrayBuffer
+```
+
+**v3.0 change:**
+```
+# Cloudflare Pages custom headers
+# COOP/COEP required for FFmpeg.wasm SharedArrayBuffer multi-threading
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+```
+
+**Impact:**
+- Enables SharedArrayBuffer for multi-threaded FFmpeg.wasm
+- Required for device processing option
+- No impact on server-side processing (API calls unaffected)
+
+---
+
+## Testing Considerations
+
+### FFmpeg.wasm Browser Compatibility
+
+| Feature | Requirement | Fallback |
+|---------|------------|----------|
+| SharedArrayBuffer | COOP/COEP headers | Single-threaded core (@ffmpeg/core-st) |
+| WebAssembly | Modern browser | Unsupported (show error message) |
+| File API | Modern browser | Unsupported (show error message) |
+
+**Detection:**
 ```javascript
-class JobQueue {
-  constructor() {
-    this.processing = false;
-  }
-
-  async tick() {
-    if (this.processing) return;
-    const job = db.prepare(
-      "SELECT * FROM jobs WHERE status = 'pending' ORDER BY created_at LIMIT 1"
-    ).get();
-    if (!job) return;
-    this.processing = true;
-    try {
-      await processJob(job);
-    } finally {
-      this.processing = false;
-      setImmediate(() => this.tick()); // Check for next job
-    }
-  }
-}
+const supportsMultiThreading = typeof SharedArrayBuffer !== 'undefined' && crossOriginIsolated === true;
 ```
 
-**Restart recovery:** On server start, mark any `status = 'processing'` jobs back to `'pending'` (they were interrupted). SQLite makes this trivial.
+**Recommendation:** Show warning if SharedArrayBuffer unavailable ("Processing will be slower without multi-threading").
 
-**Confidence:** HIGH -- standard pattern for single-machine job processing.
+### Job Cancellation Edge Cases
+
+| Scenario | Handling |
+|----------|----------|
+| Process already completed | Return 400 "Job already completed" |
+| Process not yet started | Update status to 'cancelled', skip spawn |
+| PID missing/invalid | Log error, clean up files, mark cancelled |
+| SIGTERM fails | Force kill with SIGKILL after 10s timeout |
 
 ---
 
-### ZIP Creation: archiver
+## Migration Path
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| archiver | 7.0.1 | Server-side ZIP packaging | Streaming interface, STORE compression for videos, pipe directly to response or disk |
+### Phase 1: Restore Client-Side Processing
+1. Restore `_headers` file with COOP/COEP
+2. Copy v1.0 FFmpeg.wasm code (app.js, ffmpeg-worker.js)
+3. Update to FFmpeg.wasm 0.12.15 (from 0.12.14)
+4. Add processing mode toggle UI
+5. Wire toggle to route between client and server flows
 
-**Why archiver instead of keeping JSZip:**
-- JSZip is designed for in-browser use; archiver is designed for Node.js with proper stream support
-- archiver can pipe directly to a file write stream or HTTP response
-- Supports STORE compression (no re-compression of already-compressed video)
-- Mature (5,982 dependents on npm)
-- Can create ZIP on-the-fly without holding all files in memory
+### Phase 2: Add Job Cancellation
+1. Add DELETE `/api/jobs/:jobId` endpoint
+2. Implement graceful shutdown (stdin 'q' + SIGTERM fallback)
+3. Add cleanup for partial output files
+4. Add "Cancel" button to job detail page
+5. Handle edge cases (job completed, PID missing, etc.)
 
-**Pattern:**
-```javascript
-import archiver from 'archiver';
-import { createWriteStream } from 'node:fs';
-
-const output = createWriteStream('/data/results/job-abc/output.zip');
-const archive = archiver('zip', { store: true });
-archive.pipe(output);
-archive.file('/data/results/job-abc/source1/variation-1.mp4', { name: 'source1/variation-1.mp4' });
-// ... add all files
-await archive.finalize();
-```
-
-**Confidence:** HIGH -- archiver 7.0.1 verified as latest, widely used.
+**No dependency installation needed.** All required libraries are either CDN-loaded (frontend) or Node.js built-ins (backend).
 
 ---
 
-### ID Generation: nanoid
+## Confidence Assessment
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| nanoid | 5.x | Job IDs, file IDs | URL-safe, 21 chars, collision-resistant, 118 bytes, zero deps |
-
-**Why nanoid over UUID:**
-- Shorter (21 chars vs 36) -- better for URLs like `/jobs/V1StGXR8_Z5jdHi6B-myT`
-- URL-safe alphabet by default (A-Za-z0-9_-)
-- Same collision resistance as UUID v4
-- 4x smaller than uuid package
-- 82M+ weekly npm downloads
-
-**Confidence:** HIGH -- well-established, actively maintained.
+| Area | Confidence | Rationale |
+|------|------------|-----------|
+| FFmpeg.wasm 0.12.15 | **HIGH** | Already validated in v1.0 with 0.12.14, only bug fix release since |
+| JSZip 3.10.1 | **HIGH** | Already validated in v1.0, stable API, no breaking changes |
+| COOP/COEP headers | **HIGH** | Official Cloudflare Pages feature, documented and supported |
+| Process.kill() cancellation | **HIGH** | Node.js built-in, confirmed pattern for FFmpeg graceful shutdown |
+| tree-kill necessity | **MEDIUM** | Likely unnecessary, but available if sub-process issues arise |
 
 ---
 
-### Authentication: Simple Shared Password
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| bcrypt (via bcryptjs) | 3.x | Password hashing | Pure JS, no native compilation needed in Docker |
-| Environment variable | - | Store password hash | `PASSWORD_HASH` in Fly secrets |
-
-**Why bcryptjs, NOT bcrypt:**
-- `bcryptjs` is pure JavaScript -- no native compilation issues in Alpine Linux Docker
-- `bcrypt` (native) requires python3 + make + g++ in the Docker image, bloating it
-- For a shared password checked a few times per day, performance difference is zero
-
-**Pattern:**
-```javascript
-import bcrypt from 'bcryptjs';
-
-// On first setup: generate hash
-// fly secrets set PASSWORD_HASH=$(node -e "console.log(require('bcryptjs').hashSync('team-password', 10))")
-
-// On each request
-const valid = bcrypt.compareSync(req.body.password, process.env.PASSWORD_HASH);
-```
-
-**Actually -- even simpler alternative:** Since this is a shared password for a small team, a constant-time string comparison against an env var is sufficient. Skip bcrypt entirely.
-
-```javascript
-import { timingSafeEqual } from 'node:crypto';
-
-function checkPassword(input) {
-  const expected = Buffer.from(process.env.TEAM_PASSWORD);
-  const actual = Buffer.from(input);
-  if (expected.length !== actual.length) return false;
-  return timingSafeEqual(expected, actual);
-}
-```
-
-**Recommendation:** Use the `timingSafeEqual` approach. bcrypt is designed for per-user password storage in databases. A single shared password stored as an env secret doesn't need hashing -- it needs timing-safe comparison.
-
-**Confidence:** HIGH -- both approaches are standard; simpler is better here.
-
----
-
-### Scheduled Cleanup: node-cron
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| node-cron | 3.x | Schedule 24h file expiry, 1GB cap enforcement | Lightweight cron scheduler, pure JS, runs in-process |
-
-**Why node-cron:**
-- Schedule file cleanup to run every hour
-- Check SQLite for jobs older than 24h, delete their files
-- Check total storage usage, evict oldest if >1GB
-- No external cron daemon needed
-- 3.7M weekly downloads, actively maintained
-
-**Alternative considered:** `setInterval` -- works but node-cron's cron syntax is clearer for "run at minute 0 of every hour" and handles edge cases (server start timing, missed intervals).
-
-**Pattern:**
-```javascript
-import cron from 'node-cron';
-
-// Every hour: clean up expired files
-cron.schedule('0 * * * *', () => {
-  const expired = db.prepare(
-    "SELECT * FROM jobs WHERE created_at < ? AND status = 'done'"
-  ).all(Date.now() - 24 * 60 * 60 * 1000);
-  for (const job of expired) {
-    deleteJobFiles(job.id);
-    db.prepare("DELETE FROM jobs WHERE id = ?").run(job.id);
-  }
-});
-```
-
-**Confidence:** HIGH -- standard approach for in-process scheduling.
-
----
-
-### CORS: cors middleware
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| cors | 2.8.x | Cross-origin requests from Cloudflare Pages frontend | Standard Express CORS middleware |
-
-**Why needed:** Frontend on Cloudflare Pages (`video-refresher.pages.dev`) makes API calls to Fly.io backend (`video-refresher.fly.dev`). Different origins require CORS.
-
-**Configuration:**
-```javascript
-import cors from 'cors';
-
-app.use(cors({
-  origin: ['https://video-refresher.pages.dev', 'http://localhost:8000'],
-  methods: ['GET', 'POST'],
-  credentials: false // No cookies needed with password-per-request
-}));
-```
-
-**Confidence:** HIGH
-
----
-
-## Infrastructure: Fly.io Configuration
-
-### Docker Image
-
-| Component | Choice | Why |
-|-----------|--------|-----|
-| Base image | `node:22-slim` | Debian-based, smaller than full but includes apt for FFmpeg install |
-| FFmpeg | `apt-get install -y ffmpeg` | Debian's FFmpeg 7.x package, includes ffprobe |
-| Image size | ~300-400MB estimated | Node 22 slim (~200MB) + FFmpeg (~100-150MB) + app |
-
-**Why `node:22-slim` NOT `node:22-alpine`:**
-- better-sqlite3 requires compilation; Alpine needs extra build tools (`python3`, `make`, `g++`)
-- FFmpeg packages on Alpine are sometimes behind Debian
-- Slim is a reasonable middle ground (200MB vs 350MB full, vs 80MB alpine + build deps)
-
-**Dockerfile sketch:**
-```dockerfile
-FROM node:22-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --production
-COPY . .
-
-EXPOSE 8080
-CMD ["node", "server.js"]
-```
-
-**Confidence:** HIGH
-
----
-
-### Fly.io Machine Sizing
-
-| Setting | Value | Rationale |
-|---------|-------|-----------|
-| CPU | shared-cpu-2x | Video processing is CPU-bound; 1 shared CPU would bottleneck FFmpeg |
-| Memory | 512MB | FFmpeg uses ~100-200MB per process; 512MB gives headroom for Node + FFmpeg + file I/O |
-| Volume | 1GB | Per project constraint; holds SQLite DB + uploaded videos + processed outputs |
-| Region | Single region (e.g., `iad`) | Single machine, single volume -- SQLite constraint |
-| auto_stop_machines | `"stop"` | Scale to zero when idle to save cost |
-| auto_start_machines | `true` | Wake on first request |
-| min_machines_running | `0` | Allow full scale-to-zero |
-
-**Monthly cost estimate:**
-- shared-cpu-2x @ 512MB: ~$5-7/month if running 50% of the time (auto-stop helps)
-- 1GB volume: ~$0.15/month
-- Bandwidth: Minimal for small team
-- **Total: ~$5-8/month**
-
-**fly.toml configuration:**
-```toml
-app = "video-refresher-api"
-primary_region = "iad"
-
-[build]
-
-[env]
-NODE_ENV = "production"
-PORT = "8080"
-DB_PATH = "/data/video-refresher.db"
-UPLOAD_DIR = "/data/uploads"
-OUTPUT_DIR = "/data/output"
-
-[http_service]
-internal_port = 8080
-force_https = true
-auto_stop_machines = "stop"
-auto_start_machines = true
-min_machines_running = 0
-
-[mounts]
-source = "vr_data"
-destination = "/data"
-
-[[vm]]
-memory = "512mb"
-cpu_kind = "shared"
-cpus = 2
-```
-
-**Critical constraint:** Fly Volumes are one-to-one with Machines. One Machine, one Volume. This is fine -- SQLite requires single-writer anyway.
-
-**Confidence:** HIGH -- verified against official Fly.io documentation.
-
----
-
-## What NOT to Add
-
-### Do NOT add: Redis / BullMQ
-**Why:** Requires a separate Redis instance ($5+/month), adds infrastructure complexity. SQLite + in-process queue handles <10 users easily.
-
-### Do NOT add: TypeScript (for v2)
-**Why:** The v1 codebase is vanilla JS with no build step. Adding TypeScript to the server adds compilation steps, tsconfig complexity, and slows iteration. If the project grows to v3+ with multiple contributors, reconsider. For a small team tool, vanilla JS with JSDoc type hints is faster to ship.
-
-### Do NOT add: Prisma / Drizzle / any ORM
-**Why:** 3 tables, ~10 queries total. Raw SQL with better-sqlite3 prepared statements is simpler, faster, and has zero build steps.
-
-### Do NOT add: WebSocket for progress (v2 MVP)
-**Why:** Polling (`GET /jobs/:id/status` every 2-3 seconds) is simpler and works with scale-to-zero. WebSocket connections keep the machine alive and prevent auto-stop. Add WebSocket in v3 if polling UX is inadequate.
-
-### Do NOT add: S3 / R2 for file storage
-**Why:** 1GB storage cap with 24h expiry. Fly Volume is local NVMe, faster for FFmpeg read/write, and free (only $0.15/GB/month for the volume). External object storage adds latency and complexity for no benefit at this scale.
-
-### Do NOT add: fluent-ffmpeg
-**Why:** Archived May 2025, deprecated on npm. Use `child_process.spawn('ffmpeg', [...args])` directly.
-
-### Do NOT add: PM2 or process manager
-**Why:** Docker + Fly.io already handle process lifecycle, restarts, and health checks. Adding PM2 inside a container is an anti-pattern.
-
-### Do NOT add: dotenv
-**Why:** Fly.io injects secrets as environment variables. Docker also supports env vars natively. `dotenv` is only needed for local dev, and even then `node --env-file=.env` works in Node 22.
-
----
-
-## Full Dependency List
-
-### Production Dependencies
-
-```bash
-npm install express@5 multer better-sqlite3 archiver nanoid node-cron cors
-```
-
-| Package | Version | Size | Weekly Downloads |
-|---------|---------|------|-----------------|
-| express | 5.2.x | ~200KB | 35M+ |
-| multer | 1.4.x | ~40KB | 3M+ |
-| better-sqlite3 | 12.6.x | ~2MB (native) | 1M+ |
-| archiver | 7.0.x | ~100KB | 5M+ |
-| nanoid | 5.x | <1KB | 82M+ |
-| node-cron | 3.x | ~20KB | 3.7M+ |
-| cors | 2.8.x | ~10KB | 15M+ |
-
-**Total production dependencies: 7 packages** (plus their sub-dependencies)
-
-### Dev Dependencies
-
-```bash
-npm install -D nodemon
-```
-
-Only `nodemon` for local dev with auto-restart (or use `node --watch` built into Node 22 and skip even this).
-
----
-
-## Integration Points with Existing Stack
-
-### Frontend Changes Needed
-
-The frontend (`app.js`, `index.html`) needs modification to:
-
-1. **Upload flow:** Instead of feeding files to FFmpeg.wasm, POST multipart to `/api/jobs`
-2. **Progress tracking:** Poll `GET /api/jobs/:id` every 2-3 seconds instead of FFmpeg progress events
-3. **Download:** Link to `GET /api/jobs/:id/download` which serves the ZIP from the server
-4. **Auth:** Add password input, send with each API request (header or body)
-5. **Multi-video UI:** Allow selecting multiple source files, not just one
-
-### What Can Be Reused from v1
-
-| Component | Reuse | Notes |
-|-----------|-------|-------|
-| Effect generation logic | YES -- port to server | The random effect combination builder from `app.js` |
-| FFmpeg filter strings | YES -- identical | Same `-vf` filter strings work with native FFmpeg |
-| CSS/styling | MOSTLY | UI layout changes for multi-file, but styles carry forward |
-| BlobURLRegistry | NO | Server-side uses file paths, not blob URLs |
-| FFmpeg.wasm worker | NO | Replaced by native FFmpeg child_process |
-| JSZip client-side | NO | Replaced by archiver server-side |
-
-### API Surface
-
-```
-POST   /api/auth          -- Validate password, return session token (or just validate per-request)
-POST   /api/jobs           -- Upload videos + create job (multipart)
-GET    /api/jobs/:id        -- Job status + progress
-GET    /api/jobs/:id/download -- Download result ZIP
-DELETE /api/jobs/:id        -- Cancel/delete job
-```
-
-5 endpoints. Simple REST. No GraphQL, no tRPC, no complexity.
+## Open Questions
+
+None. All stack decisions can be made with high confidence based on:
+1. v1.0 validated FFmpeg.wasm implementation
+2. v2.0 validated server-side FFmpeg spawning
+3. Official documentation for Cloudflare Pages headers
+4. Community-confirmed patterns for Node.js FFmpeg process management
 
 ---
 
 ## Sources
 
-- [Express 5.1.0 release announcement](https://expressjs.com/2025/03/31/v5-1-latest-release.html) -- Express 5 now default on npm
-- [fluent-ffmpeg archived (GitHub Issue #1324)](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg/issues/1324) -- Archived May 22, 2025
-- [better-sqlite3 npm](https://www.npmjs.com/package/better-sqlite3) -- v12.6.2, Jan 17, 2026
-- [Fly.io Volumes overview](https://fly.io/docs/volumes/overview/) -- One-to-one Machine/Volume mapping
-- [Fly.io Volume configuration](https://fly.io/docs/launch/volume-storage/) -- fly.toml mounts syntax
-- [Fly.io Node.js documentation](https://fly.io/docs/js/) -- Dockerfile patterns, volume access
-- [Fly.io pricing](https://fly.io/docs/about/pricing/) -- shared-cpu pricing
-- [Fly.io community: FFmpeg in Docker](https://community.fly.io/t/install-ffmpeg-in-the-v2/12130) -- apt-get install pattern
-- [Node.js 22 LTS release](https://nodejs.org/en/blog/release/v22.20.0) -- Current LTS
-- [Hono file upload](https://hono.dev/examples/file-upload) -- parseBody() memory limitations
-- [hono-upload (GitHub)](https://github.com/ps73/hono-upload) -- Third-party streaming upload for Hono
-- [Multer npm](https://www.npmjs.com/package/multer) -- DiskStorage engine for streaming to disk
-- [archiver npm](https://www.npmjs.com/package/archiver) -- v7.0.1, streaming ZIP
-- [nanoid npm](https://www.npmjs.com/package/nanoid) -- 82M+ weekly downloads
-- [node-cron npm](https://www.npmjs.com/package/node-cron) -- Cron scheduling
-- [BullMQ](https://bullmq.io/) -- Requires Redis (rejected for this use case)
+**FFmpeg.wasm:**
+- [@ffmpeg/ffmpeg npm](https://www.npmjs.com/package/@ffmpeg/ffmpeg) - Version 0.12.15 confirmed
+- [FFmpeg.wasm GitHub Releases](https://github.com/ffmpegwasm/ffmpeg.wasm/releases) - Release history
+
+**JSZip:**
+- [jszip npm](https://www.npmjs.com/package/jszip) - Version 3.10.1 confirmed
+
+**Cross-Origin Isolation:**
+- [Cloudflare Pages Headers Documentation](https://developers.cloudflare.com/pages/configuration/headers/)
+- [Making your website cross-origin isolated using COOP and COEP](https://web.dev/articles/coop-coep)
+
+**Job Cancellation:**
+- [How to gently terminate FFmpeg](https://forums.raspberrypi.com/viewtopic.php?t=284030) - stdin 'q' pattern
+- [Recommended way to kill process (fluent-ffmpeg)](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg/issues/138) - Community consensus
+- [tree-kill npm](https://www.npmjs.com/package//tree-kill) - Alternative for complex scenarios
 
 ---
 
-## Summary
-
-**7 production dependencies.** No build step for the server. No Redis. No ORM. No TypeScript compilation.
-
-| Layer | Technology | Rationale |
-|-------|-----------|-----------|
-| Runtime | Node.js 22 LTS | Current LTS, built-in watch/fetch/WebSocket |
-| HTTP | Express 5.x | Mature file upload ecosystem, async error handling |
-| Upload | Multer | Streams to disk, not memory |
-| Processing | Native FFmpeg via child_process.spawn | 10-50x faster than wasm, fluent-ffmpeg is deprecated |
-| Database | better-sqlite3 12.6.x | Synchronous, fast, zero-cost, single file on volume |
-| Queue | In-process (SQLite-backed) | Single machine, <10 users, no Redis needed |
-| ZIP | archiver 7.0.x | Server-side streaming ZIP |
-| IDs | nanoid 5.x | Short, URL-safe, collision-resistant |
-| Cleanup | node-cron 3.x | Hourly expiry checks |
-| Auth | crypto.timingSafeEqual | Shared password, env var, no bcrypt needed |
-| CORS | cors 2.8.x | Cloudflare Pages to Fly.io cross-origin |
-| Hosting | Fly.io shared-cpu-2x, 512MB, 1GB volume | ~$5-8/month |
-| Container | node:22-slim + apt FFmpeg | ~300-400MB image |
-
-**Overall Confidence: HIGH** -- All versions verified against npm/official sources. All architectural decisions grounded in project constraints (single machine, <10 users, $5-10/month budget).
+*Research completed: 2026-02-07*
+*Ready for roadmap creation: YES*

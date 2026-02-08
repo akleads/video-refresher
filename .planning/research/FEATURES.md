@@ -1,409 +1,455 @@
-# Feature Landscape: Server-Side Multi-Video Batch Processing
+# Feature Landscape: Hybrid Client/Server Processing with Job Cancellation
 
-**Domain:** Server-side batch video processing with job queuing, fire-and-forget workflows, and temporary result storage
+**Domain:** Hybrid processing mode toggle (FFmpeg.wasm vs server-side) with job cancellation for existing video variation generator
 **Researched:** 2026-02-07
-**Confidence:** MEDIUM-HIGH (synthesized from web research on job queue patterns, async API design, progress tracking, and temporary storage strategies; verified against multiple sources)
+**Confidence:** MEDIUM-HIGH (synthesized from web research on hybrid processing patterns, job cancellation UX, WebAssembly fallback strategies, and processing mode toggles; cross-verified with multiple sources)
 
 ## Research Context
 
-This feature analysis focuses on **v2.0: server-side multi-video batch processing** for an existing video variation generator. v1.0 is fully client-side with FFmpeg.wasm. v2.0 moves processing to a Fly.io server with native FFmpeg, adds multi-video upload, fire-and-forget workflow (close browser, return for results), and temporary storage with automatic eviction.
+This feature analysis focuses on **v3.0: hybrid client/server processing** for an existing video variation generator that already has:
 
-**Constraints informing this analysis:**
-- Server-side native FFmpeg on Fly.io (10-50x faster than wasm)
-- SQLite for job/session tracking on Fly Volume
-- 1GB temp storage cap + 24-hour auto-expiry
-- Shared password authentication for small team (<10 people)
-- MP4 input/output only
-- Existing effects: rotation, brightness, contrast, saturation (plus zoom, color, noise, speed, mirror from v1)
+**v1.0 (shipped 2026-02-07):** Client-side FFmpeg.wasm batch processing with ZIP download
+**v2.0 (shipped 2026-02-08):** Server-side native FFmpeg on Fly.io with job queue, fire-and-forget workflow, multi-video upload, and 24h temporary storage
+
+**v3.0 adds:**
+1. **Processing mode toggle** on upload page: "Process on device" (FFmpeg.wasm) vs "Send to server" (Fly.io queue)
+2. **Device processing** is self-contained: no job tracking, instant ZIP download (v1.0 behavior)
+3. **Server processing** uses existing v2.0 queue flow with job history
+4. **Job cancellation** for server jobs: kill FFmpeg process, clean up files
+5. **User preference persistence**: remember last-used mode in localStorage
+
+**Project constraints:**
+- Existing server: Express 5 + SQLite + native FFmpeg on Fly.io
+- Existing frontend: Vanilla JS SPA with hash routing (no framework)
+- COOP/COEP headers restored for SharedArrayBuffer support (required for FFmpeg.wasm multi-threading)
+- Small team tool (<10 users) with shared password auth
+- Storage: 3GB Fly Volume with 24h auto-expiry + 85% cap eviction
 
 ## Table Stakes
 
-Features users expect from server-side batch video processing. Missing these means the product feels broken or pointless compared to v1.
+Features users expect from hybrid processing mode and job cancellation. Missing these means the product feels broken or confusing.
 
 | Feature | Why Expected | Complexity | Dependencies on Existing | Notes |
 |---------|--------------|------------|--------------------------|-------|
-| **Multi-video upload** | Core v2 value prop -- upload 3-10 source videos at once, not one at a time | Medium | Extends existing drag-and-drop upload area | Must handle multiple File objects, show per-file upload progress, validate each file independently |
-| **Variations per batch** | Users need control over how many variations each source video gets | Low | Existing variation count input (1-20) | Apply same count to all videos in batch, or allow per-video counts (start with global) |
-| **Server-side processing** | Core v2 value prop -- offload from browser, 10-50x faster | High | Replaces client-side FFmpeg.wasm pipeline entirely | API: `POST /jobs` with files + config, returns job ID. Server runs native FFmpeg |
-| **Job ID and status endpoint** | Users must be able to check "is my job done yet?" | Medium | New -- no job tracking in v1 | `GET /jobs/:id` returns `{status, progress, files, error}`. Standard async request-reply pattern (HTTP 202 Accepted) |
-| **Progress tracking (polling)** | Users need to know processing is happening, not stuck | Medium | Extends existing progress bar concept | Minimum viable: poll `GET /jobs/:id` every 2-5 seconds. Shows "Processing video 3/5, variation 2/10..." |
-| **Fire-and-forget workflow** | Core v2 differentiator vs v1 -- close tab, come back later | Medium | New -- requires persistent job state in SQLite | Job persists in SQLite across browser sessions. User returns, enters job ID or sees job list, downloads results |
-| **Result download (single ZIP)** | Users expect one download for all results, organized by source video | Medium | Extends existing ZIP download (JSZip client-side) to server-side (archiver) | ZIP structure: `source1_name/var1.mp4, source1_name/var2.mp4, source2_name/var1.mp4...` |
-| **Temporary result storage** | Results must persist long enough to download (hours, not seconds) | Medium | New -- Fly Volume persistent storage | Store processed videos on Fly Volume. 24h expiry. Serve via `GET /jobs/:id/download` |
-| **Storage eviction** | 1GB cap means old results must be cleaned up automatically | Medium | New -- storage management | Two eviction triggers: (1) 24h age-based expiry, (2) oldest-first when 1GB cap hit. Cron or on-write check |
-| **Shared password auth** | Prevent unauthorized access to team tool | Low | New -- no auth in v1 | Single shared password (env var). Session cookie or bearer token after auth. Not per-user accounts |
-| **Error handling per video** | One bad video should not kill entire batch | Medium | Extends existing error handling | If video 3/5 fails (corrupt, unsupported codec), continue with 4 and 5. Report partial results with per-video error messages |
-| **Upload size validation** | Server must reject files that are too large before processing begins | Low | Extends existing client-side 100MB warning | Server-side validation: reject files > X MB (configurable). Return clear error before queuing |
+| **Processing mode toggle (visible)** | Users must know they have a choice between device and server processing | Low | New UI component on upload page | Radio buttons, not toggle switch (see UX research below). Both options visible simultaneously |
+| **Clear mode labels** | "Process on device" and "Send to server" must communicate privacy, speed, and persistence tradeoffs | Low | None | Labels should hint at consequences: "Process on device (private, stay on page)" vs "Send to server (faster, can close tab)" |
+| **Remember user preference** | Users pick a mode once, expect it to stick across sessions | Low | New localStorage integration | Save to localStorage on mode change, load on page init. Standard pattern for settings |
+| **Mode-specific UX flow** | Device mode shows progress bar → ZIP download. Server mode redirects to job page | Medium | Routes to existing v1.0 vs v2.0 flows | Device: inline progress, no job ID. Server: create job, redirect to `/jobs/:id` |
+| **COOP/COEP headers restored** | FFmpeg.wasm requires SharedArrayBuffer for multi-threading (performance critical) | Low | Cloudflare Pages header config | Headers removed in v2.0, must be restored. Without these, FFmpeg.wasm falls back to single-threaded (10x slower) |
+| **Job cancellation button** | Server jobs in "processing" state need a way to abort mid-processing | Medium | New UI element on job status page | "Cancel Job" button appears only when status is "processing". Disabled when "pending" or "completed" |
+| **Graceful FFmpeg termination** | Killing FFmpeg mid-process must allow cleanup, not corrupt partial output | Medium | Server-side process management | Send SIGTERM before SIGKILL (2.5s grace period). FFmpeg writes stdin `q\r\n` for graceful stop |
+| **Partial file cleanup** | Cancelled jobs should delete any partial variation files from storage | Medium | Extends existing cleanup daemon | Remove job directory from volume, mark job as "cancelled" in SQLite |
+| **Cancelled job status** | Users return to cancelled job, see "Cancelled" state, not "Failed" or "Processing" | Low | Extends SQLite job states | New state: `CANCELLED`. Distinct from `FAILED` (error) and `EXPIRED` (24h timeout) |
+| **No download for cancelled jobs** | Download link should return 410 Gone or hide entirely for cancelled jobs | Low | Extends existing download endpoint | `GET /jobs/:id/download` checks status, rejects if `CANCELLED` |
+| **Cancellation confirmation** | Prevent accidental cancellation with "Are you sure?" dialog | Low | New UI modal or confirm() | Standard pattern: confirm before destructive action. "Cancel this job? This cannot be undone." |
 
 ## Differentiators
 
-Features that create workflow advantage. Not strictly required, but make v2 feel polished and worth the migration from v1.
+Features that elevate the hybrid processing experience from functional to polished. Not strictly required, but make v3.0 feel well-thought-out.
 
 | Feature | Value Proposition | Complexity | Dependencies on Existing | Notes |
 |---------|-------------------|------------|--------------------------|-------|
-| **Live SSE progress stream** | Real-time progress without polling overhead | Medium | New -- supplements polling fallback | SSE (`text/event-stream`) pushes progress updates to connected clients. Falls back to polling if connection drops. Much better UX than polling every 3s |
-| **Job list page** | See all active/completed/expired jobs without remembering IDs | Low | New | `GET /jobs` returns list of recent jobs with status, creation time, download links. Simple HTML table or card layout |
-| **Per-source-video folders in ZIP** | Organized output: `video1/var1.mp4, video1/var2.mp4, video2/var1.mp4...` | Low | Extends ZIP download | Use `archiver` with `directory()` support. Users open ZIP and immediately know which variations belong to which source |
-| **Resumable upload** | Large files (50-100MB) survive network hiccups during upload | High | New | TUS protocol or chunked upload. Probably overkill for <100MB files on same network. Defer unless users report upload failures |
-| **Job cancellation** | Cancel in-progress job to free resources | Medium | Extends existing cancel button concept | `POST /jobs/:id/cancel` kills running FFmpeg processes, cleans up partial results. Important if someone accidentally uploads wrong files |
-| **Processing time estimates** | "Estimated 3 minutes remaining" based on first-video speed | Low | New | Measure time for first video in batch, extrapolate for remaining. Show in progress UI and SSE stream |
-| **Metadata JSON in ZIP** | Machine-readable manifest of effects applied per variation | Low | Exists conceptually in v1 | `manifest.json` in ZIP root: `{source_videos: [{name, variations: [{filename, effects: {rotation, brightness...}}]}]}` |
-| **Retry failed videos** | Re-process only the videos that failed, not entire batch | Medium | Extends error handling | `POST /jobs/:id/retry` re-queues only failed items. Saves time on partial failures |
-| **Storage usage indicator** | Show how much of 1GB cap is used, how much available | Low | New | `GET /storage/usage` returns `{used_bytes, total_bytes, percent}`. Display in UI header. Helps team coordinate |
-| **Webhook notification** | Notify external system (Slack, etc.) when job completes | Medium | New | Optional `webhook_url` in job config. POST to URL with job status on completion. Nice for automation but probably overkill for small team |
+| **Automatic capability detection** | If WebAssembly/SharedArrayBuffer unavailable, auto-select server mode and explain why | Medium | New browser feature detection | Check `typeof WebAssembly !== 'undefined'` and `crossOriginIsolated === true`. Show notice: "Device processing unavailable on this browser. Using server mode." |
+| **Mode recommendation badge** | Subtle UI hint: "Recommended for privacy" (device) or "Recommended for speed" (server) | Low | None | Helps new users understand tradeoffs without reading docs |
+| **Processing time estimate per mode** | "Estimated 30 seconds on device, 5 seconds on server" before user chooses | Medium | New time estimation logic | Based on file size/count. Device: ~10s/video/variation. Server: ~1-2s. Helps inform mode choice |
+| **Cancel + retry flow** | After cancelling, offer "Start New Job" button pre-filled with same files | Medium | Extends file state persistence | Keep uploaded File objects in memory until user leaves page. "Cancelled? Start over with same files." |
+| **Cancel progress indicator** | Show "Cancelling job..." spinner while FFmpeg terminates | Low | New UI state | Prevents double-cancel clicks. Shows job is responding |
+| **Cancellation reason (optional)** | Let user optionally note why they cancelled (wrong files, changed mind) | Low | New job metadata field | Helps team understand usage patterns. Not required, just a text input in cancel modal |
+| **Partial results preservation option** | "Job cancelled. Keep variations created so far?" checkbox in cancel flow | High | New storage management logic | Complex: requires tracking which variations completed before cancel. Probably defer to post-v3.0 |
+| **Server unavailable fallback** | If server returns 5xx, automatically switch to device mode with notification | Medium | New error handling | "Server unavailable. Switched to device processing." Graceful degradation |
+| **Device battery check** | On mobile, warn if battery <20% before device processing starts | Low | New battery status API check | `navigator.getBattery()`. Show: "Low battery detected. Consider using server mode." (Mobile-first consideration) |
 
 ## Anti-Features
 
-Features to explicitly NOT build. Common mistakes when moving from client-side to server-side video processing.
+Features to explicitly NOT build. Common mistakes when adding hybrid processing modes.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| **Per-user accounts and quotas** | Project explicitly serves small team (<10). User management adds auth complexity (password hashing, sessions, password reset) for zero value. Shared password is the stated requirement | Single shared password in environment variable. One `POST /auth` endpoint that returns session cookie. No signup, no profiles, no user table |
-| **Real-time WebSocket streaming of video frames** | Streaming decoded video frames over WebSocket is bandwidth-intensive and complex. Users do not need to watch video being processed in real-time -- they need a progress percentage | Use SSE for progress percentage updates. Download completed files for preview |
-| **Cloud object storage (S3/R2)** | Adds cost, complexity, and external dependency for 1GB of temp storage. Fly Volume is free with the machine, local, and fast | Store files on Fly Volume. If storage needs grow past 1GB, reconsider, but for now local disk is the right call |
-| **Persistent job history beyond 24h** | Conflicts with temp storage model. Users process daily ad batches, not archives. Storing history means growing storage forever | 24h expiry with clear messaging: "Results expire in 23h 14m. Download now." |
-| **Video format conversion (MOV, AVI, WebM)** | Scope creep. MP4 is standard for ad platforms. Supporting other formats means testing more codecs, handling edge cases, documenting format support | Accept MP4 only. Return clear error for non-MP4: "Please convert to MP4 before uploading" |
-| **Manual effect selection per variation** | Defeats "quick refresh" value prop. Users spend 10min configuring instead of 30sec uploading. Random effects are the entire point | Keep effect randomization automatic. Same approach as v1 |
-| **Queue priority system** | With <10 users and sequential processing, priority adds complexity for no benefit. Everyone's jobs are equally important | FIFO queue. First submitted, first processed. Simple and fair |
-| **Horizontal scaling / multi-worker** | Single Fly.io machine with one FFmpeg process at a time is sufficient for small team. Multi-worker requires Redis, load balancing, shared storage, and dramatically increases infra complexity | Single machine, sequential processing. Native FFmpeg is 10-50x faster than wasm -- a 10-video batch that took 20 minutes client-side takes 1-2 minutes server-side |
-| **Video preview/streaming from server** | Serving video for in-browser playback requires range request support, bandwidth, and adds complexity. Users should download and preview locally | Provide download link only. Users preview in their local video player after downloading ZIP |
-| **Variation comparison UI** | Complex UI that duplicates what users do in ad platforms anyway. Memory-intensive, hard to build well | Users upload to ad platform and compare performance there. Not our job |
-| **Custom effect presets** | Feature creep. Random variations are the point. If users want reproducibility, they should use desktop video editing tools | Keep randomization automatic. Optionally expose effect metadata in manifest.json for reference |
+| **Toggle switch for mode selection** | Toggle switches imply binary on/off settings with immediate effect. Processing mode is a choice between two distinct workflows, not a setting. Users need to see both options simultaneously to compare tradeoffs | Use radio buttons with descriptive labels. Both options visible at once. Selection applies on submit, not immediately |
+| **Hybrid mode (split processing)** | "Process first 5 videos on device, rest on server" sounds clever but adds UI complexity, unpredictable results, and edge cases (what if device fails mid-batch?). Users want one consistent flow per job | Force mode choice before upload. One mode per job. Keep it simple |
+| **Automatic mode switching mid-job** | Switching from device to server (or vice versa) after processing starts leads to inconsistent state, confusing UX, and complex error handling | Mode locked after processing starts. Cancel and restart if user wants different mode |
+| **Per-video mode selection** | "Process video 1 on device, video 2 on server" in a multi-video batch is confusing and defeats the hybrid toggle's purpose | Single mode applies to all videos in a batch |
+| **Pause/resume for device processing** | FFmpeg.wasm 0.12.x doesn't expose mid-encoding pause API. Orchestration-layer pause means user can't use browser for anything else (tab must stay open) | No pause for device mode. Cancel and restart if needed. Server mode already supports fire-and-forget |
+| **Job cancellation for device processing** | Device processing is synchronous in the browser. "Cancel" already exists (stop batch loop). No need for job-style cancellation | Existing v1.0 cancel button works. Job cancellation is server-only |
+| **Retry from checkpoint** | "Resume cancelled job from variation 7/10" requires storing partial state, complex recovery logic, and adds edge cases for minimal value | Full job restart. Cancellation means "start over." Keep it simple |
+| **Cancel confirmation skip** | "Don't ask me again" checkbox on cancel confirmation is a foot-gun. Accidental cancellation loses work | Always confirm. No skip option. Confirmation dialog is 1 click, not a burden |
+| **Queue priority for cancellation** | "Cancel immediately" vs "wait for current variation to finish" adds state complexity for marginal benefit | Cancellation starts immediately, kills FFmpeg with grace period. Current variation may finish if within 2.5s SIGTERM window |
+| **Undo cancellation** | Once job is cancelled and files deleted, there's no meaningful undo. Storage cleanup is immediate | No undo. Cancellation is final. Confirmation dialog prevents mistakes |
 
 ## Feature Dependencies
 
 ```
-Shared password auth
+COOP/COEP headers (Cloudflare Pages config)
     |
     v
-Multi-video upload -----> Upload size validation
+SharedArrayBuffer support
     |
     v
-Server-side processing (FFmpeg) -----> Error handling per video
+FFmpeg.wasm multi-threading capability
     |
     v
-Job ID + SQLite persistence
+Browser capability detection
     |
-    +--> Status endpoint (GET /jobs/:id)
-    |       |
-    |       +--> Progress tracking (polling) --- [independent: SSE live stream]
-    |       |
-    |       +--> Fire-and-forget (close tab, return later)
-    |       |
-    |       +--> Job list page
+    +----> Processing mode toggle UI
+    |           |
+    |           +--> localStorage preference
+    |           |
+    |           +--> Device mode (v1.0 flow)
+    |           |       |
+    |           |       +--> FFmpeg.wasm processing
+    |           |       |
+    |           |       +--> ZIP download
+    |           |
+    |           +--> Server mode (v2.0 flow)
+    |                   |
+    |                   +--> POST /jobs (existing)
+    |                   |
+    |                   +--> Job status page (existing)
+    |                           |
+    |                           +--> Job cancellation button
+    |                                   |
+    |                                   +--> POST /jobs/:id/cancel (new endpoint)
+    |                                   |       |
+    |                                   |       +--> SIGTERM → FFmpeg
+    |                                   |       |
+    |                                   |       +--> Partial file cleanup
+    |                                   |       |
+    |                                   |       +--> SQLite status update (CANCELLED)
+    |                                   |
+    |                                   +--> Cancel confirmation modal
+    |                                   |
+    |                                   +--> Cancel progress indicator
     |
-    +--> Result storage on Fly Volume
-    |       |
-    |       +--> Storage eviction (24h + 1GB cap)
-    |       |
-    |       +--> Storage usage indicator
-    |
-    +--> ZIP download (organized by source video)
-            |
-            +--> Per-source-video folders
-            |
-            +--> Metadata JSON manifest
+    v
+Download blocked for CANCELLED jobs
 ```
 
-**Critical path:** Auth --> Upload --> Processing --> Job tracking --> Storage --> Download
-**Blockers:** Auth must exist before any API endpoint works. Processing pipeline must work before progress tracking matters.
-**Independent:** SSE progress can be added after polling works. Metadata JSON is additive. Storage indicator is additive.
+**Critical path:**
+1. COOP/COEP headers → SharedArrayBuffer → FFmpeg.wasm viable
+2. Mode toggle UI → Device flow (existing v1.0) OR Server flow (existing v2.0)
+3. Job cancellation button → Cancel endpoint → FFmpeg kill → Cleanup
+
+**Blockers:**
+- Without COOP/COEP, FFmpeg.wasm runs single-threaded (10x slower, unusable)
+- Without localStorage, preference doesn't persist (annoying but not broken)
+- Without graceful FFmpeg termination, partial files may corrupt storage
+
+**Independent:**
+- Capability detection can be added after toggle works
+- Time estimates can be added after mode selection works
+- Battery check is purely additive
 
 ## MVP Recommendation
 
-For v2.0 MVP, prioritize building a complete but minimal pipeline end-to-end before adding polish.
+For v3.0 MVP, prioritize making the toggle work correctly with minimal polish, then add job cancellation as a separate completable unit.
 
 ### Must-Have (Table Stakes)
 
-1. **Shared password auth** -- Gate all endpoints. Single password from env var, session cookie
-2. **Multi-video upload** -- `POST /jobs` with multipart form data (multiple files + variation count)
-3. **Server-side FFmpeg processing** -- Sequential processing, one video at a time, native FFmpeg
-4. **Job ID + SQLite tracking** -- Persist job state: `pending -> processing -> completed -> expired`
-5. **Status polling endpoint** -- `GET /jobs/:id` with progress percentage and per-video status
-6. **Fire-and-forget** -- Job state survives browser close. Return to job list or bookmark status URL
-7. **Temporary result storage** -- Save processed videos to Fly Volume with 24h TTL
-8. **Storage eviction** -- Cron-style cleanup: delete files >24h old, delete oldest when >1GB
-9. **ZIP download** -- `GET /jobs/:id/download` streams ZIP with all variations organized by source video
-10. **Error handling per video** -- Partial success: report which videos succeeded and which failed
-11. **Upload size validation** -- Reject files above size limit before queuing
+**Hybrid Processing Toggle:**
+1. **COOP/COEP headers restored** -- Cloudflare Pages `_headers` config for SharedArrayBuffer
+2. **Processing mode toggle UI** -- Radio buttons on upload page with clear labels
+3. **localStorage preference** -- Save/load user's last-used mode
+4. **Mode-specific flow routing** -- Device → v1.0 flow (inline progress, ZIP). Server → v2.0 flow (job redirect)
+5. **Clear mode labels** -- "Process on device (private, stay on page)" vs "Send to server (faster, can close tab)"
+
+**Job Cancellation:**
+6. **Cancel button on job status page** -- Visible only when status is "processing"
+7. **POST /jobs/:id/cancel endpoint** -- Server-side cancellation handler
+8. **Graceful FFmpeg termination** -- SIGTERM with 2.5s grace period before SIGKILL
+9. **Partial file cleanup** -- Delete job directory from Fly Volume
+10. **CANCELLED job state** -- New SQLite status, distinct from FAILED/EXPIRED
+11. **Cancel confirmation modal** -- "Are you sure? This cannot be undone."
+12. **Download blocked for cancelled jobs** -- `GET /jobs/:id/download` returns 410 Gone
 
 ### Should-Have (Low-Complexity Differentiators)
 
-12. **SSE progress stream** -- Real-time updates while tab is open, with polling fallback
-13. **Job list page** -- `GET /jobs` shows recent jobs with status and download links
-14. **Per-source-video folders in ZIP** -- `source1_name/var1.mp4` structure
-15. **Processing time estimates** -- Based on first video's processing speed
-16. **Metadata JSON in ZIP** -- `manifest.json` documenting effects applied
+13. **Automatic capability detection** -- Detect missing WebAssembly/SharedArrayBuffer, auto-select server mode
+14. **Mode recommendation badges** -- "Recommended for privacy" (device) vs "Recommended for speed" (server)
+15. **Cancel progress indicator** -- "Cancelling job..." spinner during FFmpeg kill
+16. **Server unavailable fallback** -- Auto-switch to device mode if server returns 5xx
 
 ### Defer to Post-MVP
 
-- **Resumable upload** -- Only needed if users report upload failures
-- **Job cancellation** -- Nice but not critical for MVP
-- **Retry failed videos** -- Can re-submit entire job for now
-- **Storage usage indicator** -- Can check manually via SSH for now
-- **Webhook notification** -- No automation need identified yet
+- Processing time estimate per mode
+- Cancel + retry flow (pre-fill files)
+- Cancellation reason (optional text input)
+- Partial results preservation option
+- Device battery check (mobile consideration)
 
 ### Explicitly Reject
 
-- Per-user accounts and quotas
-- WebSocket video frame streaming
-- Cloud object storage (S3/R2)
-- Persistent history beyond 24h
-- Video format conversion
-- Manual effect selection
-- Queue priority system
-- Horizontal scaling / multi-worker
-- Video preview/streaming from server
-- Variation comparison UI
-- Custom effect presets
+- Toggle switch for mode selection (use radio buttons)
+- Hybrid mode (split processing across device + server)
+- Automatic mode switching mid-job
+- Per-video mode selection
+- Pause/resume for device processing
+- Job cancellation for device processing (not needed)
+- Retry from checkpoint
+- Cancel confirmation skip ("don't ask again")
+- Queue priority for cancellation
+- Undo cancellation
+
+## Expected Behavior Patterns
+
+Based on research of hybrid processing systems, job cancellation UX, and browser capability detection, here's how v3.0 features should work.
+
+### Processing Mode Selection Flow
+
+```
+1. User lands on upload page
+2. UI loads preference from localStorage (default: device mode)
+3. Browser capability check runs:
+   - If WebAssembly unavailable: disable device option, select server, show notice
+   - If crossOriginIsolated === false: disable device option, select server, show notice
+   - Otherwise: both options available
+4. User sees radio buttons:
+   ( ) Process on device (private, stay on page)     [Recommended for privacy]
+   (•) Send to server (faster, can close tab)        [Recommended for speed]
+5. User selects mode (or keeps default)
+6. User uploads files, sets variation count
+7. User clicks "Start Processing"
+8. localStorage saves selected mode for next session
+9a. If device mode: existing v1.0 flow (FFmpeg.wasm, inline progress, ZIP download)
+9b. If server mode: existing v2.0 flow (POST /jobs, redirect to status page)
+```
+
+**Key UX insights from research:**
+- **Radio buttons, not toggle switch**: Toggle switches are for settings with immediate effect (dark mode). Mode selection is a choice between workflows, applied on submit. [NN/g Toggle Guidelines](https://www.nngroup.com/articles/toggle-switch-guidelines/)
+- **Both options visible**: Users need to compare tradeoffs. Hidden options reduce discoverability. [Toggle UX Best Practices](https://www.eleken.co/blog-posts/toggle-ux)
+- **Recommendation badges**: Subtle guidance helps new users without overwhelming. User preference overrides. [Dynamic Personalization 2026](https://www.uxdesigninstitute.com/blog/the-top-ux-design-trends-in-2026/)
+
+### Job Cancellation Flow
+
+```
+1. User submits job in server mode
+2. Job status page shows:
+   - Status: "Processing"
+   - Progress: "Processing video 2/5, variation 3/10 (45%)"
+   - [Cancel Job] button (red, secondary action)
+3. User clicks [Cancel Job]
+4. Confirmation modal appears:
+   "Cancel this job?
+    All progress will be lost and files will be deleted.
+    This cannot be undone.
+    [Keep Processing] [Cancel Job]"
+5. User clicks [Cancel Job] in modal
+6. UI shows "Cancelling job..." spinner (button disabled)
+7. Frontend: POST /jobs/:id/cancel
+8. Backend:
+   - Find running FFmpeg child process for this job
+   - Write 'q\r\n' to stdin (graceful stop signal)
+   - Wait 2.5 seconds for FFmpeg to finish current frame
+   - If still running, send SIGTERM
+   - If still running after 2.5s more, send SIGKILL
+   - Delete job directory from Fly Volume
+   - Update SQLite: status = 'cancelled'
+   - Respond 200 OK { status: 'cancelled' }
+9. Frontend updates UI:
+   - Status: "Cancelled"
+   - Progress: "(Job was cancelled)"
+   - [Download ZIP] hidden
+   - [Start New Job] button (optional differentiator)
+10. Job appears in job list with "Cancelled" badge
+```
+
+**Key UX insights from research:**
+- **Always confirm destructive actions**: Prevents accidental data loss. Standard pattern. [Nondestructive Cancel Buttons](https://blog.logrocket.com/ux-design/how-to-design-nondestructive-cancel-buttons/)
+- **Graceful FFmpeg termination**: `q\r\n` to stdin allows FFmpeg cleanup, prevents corruption. SIGTERM before SIGKILL. [FFmpeg Termination Best Practices](https://wiki.serviio.org/doku.php?id=ffmpeg_term)
+- **Immediate cancellation, not queued**: Users expect cancel to act now, not wait in queue. [Cancel vs Close UX](https://www.nngroup.com/articles/cancel-vs-close/)
+- **CancellationToken pattern**: ASP.NET Core pattern applies to Node.js child_process. Respect cancellation signals. [ASP.NET Cancellation](https://www.rahulpnath.com/blog/abortcontroller-cancellationtoken-dotnet)
+
+### Capability Detection and Fallback
+
+```
+// On upload page load
+function detectDeviceProcessingSupport() {
+  const reasons = [];
+
+  // Check WebAssembly support
+  if (typeof WebAssembly === 'undefined') {
+    reasons.push('WebAssembly not supported in this browser');
+  }
+
+  // Check SharedArrayBuffer (requires COOP/COEP headers)
+  if (!crossOriginIsolated) {
+    reasons.push('Browser security settings prevent multi-threaded processing');
+  }
+
+  // Check if running on low-power device (optional)
+  if (navigator.deviceMemory && navigator.deviceMemory < 4) {
+    reasons.push('Device has limited memory (recommended: 4GB+)');
+  }
+
+  if (reasons.length > 0) {
+    // Disable device mode option
+    deviceModeRadio.disabled = true;
+    serverModeRadio.checked = true;
+    showNotice(`Device processing unavailable: ${reasons.join(', ')}. Using server mode.`);
+  }
+}
+```
+
+**Key insights from research:**
+- **WebAssembly feature detection**: Use `wasm-feature-detect` library or manual checks. [WebAssembly Feature Detection](https://web.dev/articles/webassembly-feature-detection)
+- **crossOriginIsolated check**: Verifies COOP/COEP headers are present. Required for SharedArrayBuffer. [WASM Fallback Patterns](https://platform.uno/blog/the-state-of-webassembly-2025-2026/)
+- **Graceful degradation**: When features unavailable, fall back to server mode with clear explanation. [Progressive Enhancement](https://book.leptos.dev/progressive_enhancement/index.html)
+
+### localStorage Preference Persistence
+
+```javascript
+// Save preference on mode change
+function handleModeChange(mode) {
+  localStorage.setItem('videoRefresherProcessingMode', mode); // 'device' or 'server'
+}
+
+// Load preference on page init
+function initProcessingModeUI() {
+  const savedMode = localStorage.getItem('videoRefresherProcessingMode') || 'device'; // default to device
+
+  if (savedMode === 'device' && isDeviceProcessingSupported()) {
+    deviceModeRadio.checked = true;
+  } else {
+    serverModeRadio.checked = true;
+  }
+}
+```
+
+**Key insights from research:**
+- **localStorage for preferences**: Standard pattern for user settings that persist across sessions. 5MB limit is more than sufficient. [localStorage Best Practices](https://peerdh.com/blogs/programming-insights/implementing-local-storage-for-user-preferences-in-a-web-app)
+- **Sensible defaults**: Default to device mode (privacy-first, 78% user preference). Fall back to server if device unavailable. [On-Device Processing Preferences](https://www.f22labs.com/blogs/what-is-on-device-ai-a-complete-guide/)
 
 ## Complexity Estimates
 
 | Feature Category | Complexity | Estimate | Notes |
 |------------------|------------|----------|-------|
-| **Auth (shared password, session)** | Low | 2-4 hours | Express middleware, bcrypt compare, cookie session |
-| **Upload endpoint (multipart, validation)** | Medium | 4-6 hours | multer or busboy, file validation, temp storage |
-| **Server-side FFmpeg pipeline** | High | 8-12 hours | Port effect randomization from v1, child_process spawn, output management |
-| **SQLite job tracking** | Medium | 4-6 hours | Schema design, CRUD operations, state machine |
-| **Status/progress endpoint** | Low | 2-3 hours | Query SQLite, format response |
-| **SSE progress stream** | Medium | 3-5 hours | EventSource server, client reconnection handling |
-| **Temporary storage + eviction** | Medium | 4-6 hours | File management, cleanup scheduler, size tracking |
-| **ZIP download (streaming, organized)** | Medium | 4-6 hours | archiver library, folder structure, streaming response |
-| **Job list page** | Low | 2-3 hours | Simple HTML page, fetch job list |
-| **Frontend rewrite (API client)** | Medium | 6-8 hours | Replace FFmpeg.wasm calls with API calls, upload UI, progress UI, download UI |
-| **Error handling + edge cases** | Medium | 4-6 hours | Partial failures, cleanup on crash, graceful shutdown |
-| **Docker + Fly.io deployment** | Medium | 3-5 hours | Dockerfile with FFmpeg, fly.toml, volume config |
-| **TOTAL MVP** | | **46-70 hours** | |
+| **COOP/COEP headers restore** | Low | 15-30 min | Edit Cloudflare Pages `_headers` file, deploy, verify with DevTools |
+| **Processing mode toggle UI** | Low | 1-2 hours | Radio buttons, labels, badges, CSS styling |
+| **localStorage preference** | Low | 30 min - 1 hour | Save on change, load on init, default handling |
+| **Mode-specific flow routing** | Medium | 2-3 hours | Conditional logic: device → v1.0 flow, server → v2.0 flow |
+| **Browser capability detection** | Medium | 2-3 hours | WebAssembly check, crossOriginIsolated check, UI updates, notices |
+| **Cancel button UI (frontend)** | Low | 1-2 hours | Button component, modal confirmation, loading state |
+| **POST /jobs/:id/cancel endpoint** | Medium | 3-4 hours | Express route, job lookup, FFmpeg kill logic, error handling |
+| **Graceful FFmpeg termination** | High | 4-6 hours | stdin 'q' signal, SIGTERM with grace period, SIGKILL fallback, process tracking |
+| **Partial file cleanup** | Medium | 2-3 hours | Delete job directory from Fly Volume, SQLite update |
+| **CANCELLED job state** | Low | 1-2 hours | SQLite schema update, status checks, download endpoint guard |
+| **Cancel progress indicator** | Low | 30 min - 1 hour | Spinner, button disabled state |
+| **Mode recommendation badges** | Low | 1 hour | Static labels with CSS, optional icons |
+| **Processing time estimates** | Medium | 3-4 hours | File size calculation, mode-specific formulas, UI display |
+| **Server unavailable fallback** | Medium | 2-3 hours | API error handling, mode switch, user notification |
+| **Testing + edge cases** | Medium | 4-6 hours | Test all mode combinations, cancel timing, capability detection edge cases |
+| **TOTAL MVP** | | **27-42 hours** | |
 
-## Server-Side Job Processing: Expected Behavior Patterns
+## User Preference and Tradeoff Analysis
 
-Based on research of established patterns (BullMQ, async request-reply, Fly.io deployment patterns), here is how server-side batch video processing is expected to work.
+Based on research, here's how users evaluate processing mode choices:
 
-### Job Lifecycle State Machine
+### Device Processing (FFmpeg.wasm)
 
-```
-PENDING --> PROCESSING --> COMPLETED --> EXPIRED
-                |                           ^
-                v                           |
-             FAILED -----(24h)------------>-+
-                |
-                v
-          (CANCELLED) [post-MVP]
-```
+**Strengths:**
+- **Privacy**: Data never leaves browser. 78% of users refuse cloud AI features for privacy reasons. [On-Device AI Adoption](https://www.f22labs.com/blogs/what-is-on-device-ai-a-complete-guide/)
+- **No upload latency**: Processing starts immediately, no upload progress bar
+- **Offline capable**: Works without internet after page loads (FFmpeg.wasm cached)
+- **Predictable cost**: No server costs, no quotas
 
-**States:**
-- **PENDING**: Job created, files uploaded, waiting for processing slot
-- **PROCESSING**: FFmpeg actively working. Progress updated per-video
-- **COMPLETED**: All videos processed (or partially -- with per-video error details). Results available for download
-- **FAILED**: Entire job failed (e.g., server crash, disk full). Distinct from partial failure
-- **EXPIRED**: Results deleted after 24h. Job metadata retained for reference
+**Weaknesses:**
+- **Slower processing**: 10-20x slower than native FFmpeg. 30s per video vs 2s. [FFmpeg.wasm Performance](https://ffmpegwasm.netlify.app/docs/performance/)
+- **Tab must stay open**: Fire-and-forget not possible, user locked to page
+- **Memory intensive**: Large batches (10+ videos) may crash on low-memory devices
+- **Browser compatibility**: Requires modern browser with WebAssembly, SharedArrayBuffer
 
-### API Contract (Expected Pattern)
+**Best for:**
+- Users who prioritize privacy
+- Small batches (1-3 videos, 5-10 variations)
+- Offline/unreliable network scenarios
+- Users who don't mind waiting on-page
 
-```
-POST /auth
-  Body: { password: "shared-secret" }
-  Response: Set-Cookie: session=<token>
+### Server Processing (Native FFmpeg on Fly.io)
 
-POST /jobs
-  Auth: Cookie session
-  Body: multipart/form-data { files[], variationCount: 10 }
-  Response: 202 Accepted
-  {
-    jobId: "abc123",
-    status: "pending",
-    statusUrl: "/jobs/abc123",
-    downloadUrl: "/jobs/abc123/download",
-    videosCount: 3,
-    variationsPerVideo: 10,
-    totalVariations: 30
-  }
+**Strengths:**
+- **10-50x faster**: Native FFmpeg is dramatically faster. 2s per video vs 30s. [Server vs Client Processing](https://dev.to/baojian_yuan/moving-ffmpeg-to-the-browser-how-i-saved-100-on-server-costs-using-webassembly-4l9f)
+- **Fire-and-forget**: Close browser, return hours later for results
+- **Handles large batches**: 10+ videos, 20 variations per video
+- **Universal compatibility**: Works on any browser, any device
 
-GET /jobs/:id
-  Response: 200 OK
-  {
-    jobId: "abc123",
-    status: "processing",
-    progress: {
-      currentVideo: 2,
-      totalVideos: 3,
-      currentVariation: 5,
-      totalVariations: 10,
-      overallPercent: 50
-    },
-    videos: [
-      { name: "ad1.mp4", status: "completed", variations: 10 },
-      { name: "ad2.mp4", status: "processing", currentVariation: 5 },
-      { name: "ad3.mp4", status: "pending" }
-    ],
-    createdAt: "2026-02-07T10:00:00Z",
-    expiresAt: "2026-02-08T10:00:00Z"
-  }
+**Weaknesses:**
+- **Upload time**: 50-100MB videos take 30-60s to upload before processing starts
+- **Privacy concern**: Files temporarily stored on server (24h expiry)
+- **Server dependency**: Requires Fly.io to be available
+- **Storage limits**: 3GB cap, results expire after 24h
 
-GET /jobs/:id/download
-  Response: 200 OK (Content-Type: application/zip, streamed)
-  Only available when status is "completed"
+**Best for:**
+- Users who need speed
+- Large batches (5+ videos, 10+ variations)
+- Fire-and-forget workflow (upload and walk away)
+- Team collaboration (job history shared across users)
 
-GET /jobs
-  Response: 200 OK
-  { jobs: [...] }  // List of user's recent jobs
+### Decision Matrix
 
-GET /jobs/:id/progress  (SSE endpoint)
-  Response: text/event-stream
-  data: { percent: 50, message: "Processing ad2.mp4 variation 5/10" }
-```
+| Criterion | Device Mode | Server Mode | Winner |
+|-----------|-------------|-------------|--------|
+| Privacy | Excellent (data never leaves browser) | Good (24h temp storage) | Device |
+| Speed | Slow (10-20x slower) | Fast (native FFmpeg) | Server |
+| Batch size | Small (1-3 videos) | Large (10+ videos) | Server |
+| Workflow | Must stay on page | Fire-and-forget | Server |
+| Compatibility | Modern browsers only | Universal | Server |
+| Network dependency | Low (after initial load) | High (upload + download) | Device |
 
-### Fire-and-Forget UX Flow
-
-```
-1. User opens tool, authenticates with shared password
-2. User uploads 3 MP4 files, sets 10 variations
-3. Server responds with job ID and status URL
-4. User sees progress (SSE stream if tab open, polling otherwise)
-5. User closes browser tab (or laptop)
-    --> Job continues processing on server
-6. User returns hours later
-    --> Opens tool, sees job list
-    --> Job shows "Completed" with download link
-    --> Clicks download, gets ZIP
-7. After 24 hours, results auto-expire
-    --> Job shows "Expired" in list
-    --> Download link returns 410 Gone
-```
-
-### Progress Tracking Strategy
-
-**Recommendation: SSE primary, polling fallback.**
-
-SSE (Server-Sent Events) is the right choice for this use case because:
-- Unidirectional (server to client) -- we only need to push progress, not receive input
-- Automatic reconnection built into EventSource API
-- Simpler than WebSocket (no handshake protocol, no ping/pong)
-- Works behind most proxies and load balancers
-- Falls back gracefully: if SSE connection drops, client switches to polling `GET /jobs/:id`
-
-**Not WebSocket** because:
-- Bidirectional not needed
-- More complex server implementation
-- Overkill for progress percentage updates
-
-**Not polling-only** because:
-- 2-5 second polling delay feels sluggish for progress updates
-- Unnecessary HTTP overhead for active monitoring
-- SSE is trivial to implement with Express (set headers, write to response)
-
-### Storage Eviction Strategy
-
-**Two-trigger eviction model:**
-
-1. **Time-based (primary):** Delete files older than 24 hours
-   - Run cleanup check every 15 minutes via `setInterval`
-   - Query SQLite: `SELECT * FROM jobs WHERE created_at < datetime('now', '-24 hours') AND status != 'expired'`
-   - Delete associated files from disk
-   - Update job status to 'expired'
-
-2. **Space-based (secondary):** When total storage exceeds 1GB, delete oldest first
-   - Check total storage on each job completion
-   - If over 1GB, find oldest completed/expired jobs and delete until under threshold
-   - LRU-like: oldest results go first regardless of 24h window
-
-**Why not Redis TTL or cron:** SQLite + `setInterval` is simpler, zero-dependency, and sufficient for single-machine deployment. No need for external scheduler.
-
-### ZIP Structure
-
-```
-batch_abc123.zip
-  |-- ad_creative_1/
-  |     |-- ad_creative_1_var01_a1b2c3.mp4
-  |     |-- ad_creative_1_var02_d4e5f6.mp4
-  |     |-- ad_creative_1_var03_g7h8i9.mp4
-  |
-  |-- ad_creative_2/
-  |     |-- ad_creative_2_var01_j0k1l2.mp4
-  |     |-- ad_creative_2_var02_m3n4o5.mp4
-  |     |-- ad_creative_2_var03_p6q7r8.mp4
-  |
-  |-- manifest.json
-```
-
-**Use `archiver` (not JSZip)** for server-side ZIP creation because:
-- archiver is designed for Node.js server-side streaming
-- Supports piping directly to HTTP response (no temp ZIP file needed)
-- JSZip is designed for browser environments
-- archiver handles folder structure natively via `directory()` method
-- STORE compression (no re-compression of already-compressed H.264 video)
-
-## Domain-Specific Insights
-
-### What Changes from v1 to v2
-
-| Aspect | v1 (Client-Side) | v2 (Server-Side) |
-|--------|-------------------|-------------------|
-| Processing speed | 60s per video (wasm) | 2-5s per video (native FFmpeg) |
-| Memory constraint | Browser ~2GB limit | Server 256MB-1GB (Fly machine) |
-| Concurrency | One video at a time (browser lock) | One at a time (by choice, not limitation) |
-| Result persistence | Gone when tab closes | 24h on server |
-| User waiting | Must keep tab open | Close tab, return later |
-| Multi-video | Upload one, process one | Upload many, process all |
-| ZIP creation | Client-side (JSZip, memory-limited) | Server-side (archiver, streaming) |
-
-### What Users Actually Need from Batch Processing
-
-Based on ad creative refresh workflow patterns:
-
-- **Speed over configurability** -- Upload files, set count, click go. Done in 1-2 minutes server-side vs 20 minutes client-side
-- **Reliability over features** -- Job must not silently fail. Clear status: working, done, or failed with reason
-- **Organized output** -- ZIP with folders per source video. Not 30 loose files with cryptic names
-- **Forgettable workflow** -- Submit job, walk away, come back when convenient. No anxiety about browser crashing
-- **Partial success** -- If 1 of 5 videos is corrupt, process the other 4 and report the failure
-
-### What Users Do NOT Need
-
-- Fine-grained job management (pause, resume, reorder queue)
-- Historical job analytics or reporting
-- Video preview on server (download and preview locally)
-- Collaboration features (shared job history, comments)
-- Scheduled/recurring jobs (ad hoc use only)
+**Recommendation strategy:**
+- Default to device mode (privacy-first, matches 78% user preference)
+- Badge server mode as "Recommended for speed" for large batches
+- Auto-select server mode if device processing unavailable
 
 ## Open Questions
 
-1. **Should job IDs be memorable or opaque?** Short alphanumeric (e.g., `abc123`) is easier to share verbally than UUID. But UUIDs prevent guessing. For shared-password tool, short IDs are fine -- security is at the auth layer, not the job ID layer.
+1. **Should cancelled jobs count toward storage quota?** Cancelled jobs have no files (cleaned up immediately), but job metadata persists in SQLite. Recommend: SQLite metadata doesn't count toward 3GB volume quota. Only files on disk count.
 
-2. **Should expired jobs show in job list?** Showing "Expired" status helps users understand the system. Recommend: keep job metadata in SQLite indefinitely (tiny), delete only the video files after 24h. List shows all jobs with status.
+2. **Can users cancel while job is "pending" (not yet processing)?** Yes -- pending jobs are in queue but not running FFmpeg. Cancel just removes from queue, no FFmpeg to kill. Fast operation.
 
-3. **Should users be able to re-download before expiry?** Yes -- download should be idempotent. ZIP can be re-generated on each download (streaming from stored files) or cached as a pre-built ZIP. Recommend: store individual variation files, generate ZIP on download request (avoids storing 2x the data).
+3. **What happens if user cancels, then server finishes current variation before SIGTERM?** Current variation may complete if FFmpeg exits gracefully within grace period. These files should still be cleaned up (job is cancelled, partial results not downloadable). Cancellation intent overrides partial success.
 
-4. **What happens if server restarts mid-processing?** Jobs in PROCESSING state should be detected on startup and either retried or marked FAILED. SQLite persists across restarts (on Fly Volume). FFmpeg child processes will die, but job state should recover.
+4. **Should device mode show a "Switch to server mode" link if processing is slow?** Could be helpful, but interrupting mid-processing is complex (would need to cancel device job, re-upload files, start server job). Defer to post-v3.0. Keep mode locked once processing starts.
 
-5. **Should upload and processing be synchronous or asynchronous?** Asynchronous. Upload saves files and creates PENDING job. Processing happens in background. This is the standard async request-reply pattern (HTTP 202 Accepted).
+5. **How to handle COOP/COEP headers breaking third-party scripts (analytics, etc.)?** COOP/COEP isolate the page from cross-origin resources. If using Google Analytics or other third-party scripts, they may break. Recommend: self-host critical scripts or accept degraded analytics. SharedArrayBuffer is required for multi-threaded FFmpeg.wasm.
+
+6. **Should server unavailable fallback ask user, or auto-switch silently?** Auto-switch with clear notification. Users want their job to succeed; they don't want to be blocked by server downtime. "Server unavailable. Switched to device processing." gives user control to cancel if they don't want device mode.
+
+7. **Can users see list of cancelled jobs in job history?** Yes -- cancelled jobs should appear in job list with "Cancelled" status. Helps users understand what happened if they return later. SQLite metadata persists even after files deleted.
 
 ## Sources
 
 ### HIGH Confidence (official documentation, established patterns)
 
-- [Fly.io Volumes documentation](https://fly.io/docs/volumes/overview/) -- persistent storage on Fly.io
-- [Fly.io database/storage guides](https://fly.io/docs/database-storage-guides/) -- SQLite on Fly volumes
-- [archiver npm package](https://www.npmjs.com/package/archiver) -- server-side streaming ZIP creation
-- [BullMQ documentation](https://docs.bullmq.io/guide/queues) -- job queue patterns (referenced for design, not used directly)
-- [HTTP 202 Accepted pattern](https://apidog.com/blog/status-code-202-accepted/) -- async request-reply API design
+- [Nielsen Norman Group: Toggle Switch Guidelines](https://www.nngroup.com/articles/toggle-switch-guidelines/) -- when to use toggles vs radio buttons
+- [Nielsen Norman Group: Cancel vs Close](https://www.nngroup.com/articles/cancel-vs-close/) -- distinguishing cancel actions in UI
+- [FFmpeg.wasm Performance Documentation](https://ffmpegwasm.netlify.app/docs/performance/) -- 10-20x slower than native
+- [FFmpeg.wasm Overview](https://ffmpegwasm.netlify.app/docs/overview/) -- browser-based video processing
+- [WebAssembly Feature Detection (web.dev)](https://web.dev/articles/webassembly-feature-detection) -- capability detection patterns
+- [MDN: Background Tasks API](https://developer.mozilla.org/en-US/docs/Web/API/Background_Tasks_API) -- browser background processing
+- [Microsoft Learn: ASP.NET Background Tasks](https://learn.microsoft.com/en-us/dotnet/architecture/microservices/multi-container-microservice-net-applications/background-tasks-with-ihostedservice) -- cancellation token patterns
+- [FFmpeg Manual Termination (ServiioWiki)](https://wiki.serviio.org/doku.php?id=ffmpeg_term) -- graceful FFmpeg stop signals
 
 ### MEDIUM Confidence (multiple sources agree, verified patterns)
 
-- [SSE vs WebSocket vs Polling comparison (2025)](https://dev.to/haraf/server-sent-events-sse-vs-websockets-vs-long-polling-whats-best-in-2025-5ep8) -- SSE recommended for unidirectional progress
-- [SSE beats WebSocket for 95% of apps](https://dev.to/polliog/server-sent-events-beat-websockets-for-95-of-real-time-apps-heres-why-a4l) -- SSE suitability for progress tracking
-- [better-queue-sqlite npm](https://www.npmjs.com/package/better-queue-sqlite) -- SQLite job queue option (if needed)
-- [node-sqlite-queue](https://github.com/sinkhaha/node-sqlite-queue) -- SQLite-backed job queue
-- [Bulk API design patterns](https://www.mscharhag.com/api-design/bulk-and-batch-operations) -- batch endpoint design
-- [Batch upload endpoint patterns](https://doc.nuxeo.com/nxdoc/batch-upload-endpoint/) -- multi-file upload with batch ID
-- [File upload UX best practices (2025)](https://www.portotheme.com/10-file-upload-system-features-every-developer-should-know-in-2025/) -- drag-and-drop, progress, validation
-- [Fire-and-forget in Node.js](https://medium.com/@dev.chetan.rathor/understanding-fire-and-forget-in-node-js-what-it-really-means-a83705aca4eb) -- background processing patterns
-- [Streaming ZIP to browser in Express](https://codepunk.io/how-to-stream-a-zip-file-to-the-browser-in-express-and-node-js/) -- server-side ZIP streaming
+- [The State of WebAssembly 2025-2026](https://platform.uno/blog/the-state-of-webassembly-2025-2026/) -- fallback patterns, browser support
+- [Progressive Enhancement (Leptos Book)](https://book.leptos.dev/progressive_enhancement/index.html) -- graceful degradation strategies
+- [LogRocket: Nondestructive Cancel Buttons](https://blog.logrocket.com/ux-design/how-to-design-nondestructive-cancel-buttons/) -- confirmation patterns
+- [Toggle UX Best Practices (Eleken)](https://www.eleken.co/blog-posts/toggle-ux) -- when to use toggles
+- [UX Design Trends 2026 (UX Design Institute)](https://www.uxdesigninstitute.com/blog/the-top-ux-design-trends-in-2026/) -- dynamic personalization, on-device AI trends
+- [localStorage for User Preferences](https://peerdh.com/blogs/programming-insights/implementing-local-storage-for-user-preferences-in-a-web-app) -- persistence patterns
+- [On-Device AI Guide 2026 (F22 Labs)](https://www.f22labs.com/blogs/what-is-on-device-ai-a-complete-guide/) -- user preference stats (78% refuse cloud, 91% pay for on-device)
+- [Moving FFmpeg to Browser (DEV.to)](https://dev.to/baojian_yuan/moving-ffmpeg-to-the-browser-how-i-saved-100-on-server-costs-using-webassembly-4l9f) -- FFmpeg.wasm vs server comparison
+- [Online Video Editor: FFmpeg WASM to Server-Side (HN Discussion)](https://news.ycombinator.com/item?id=34903898) -- real-world tradeoffs discussion
+- [AbortController and CancellationToken (Rahul Nath)](https://www.rahulpnath.com/blog/abortcontroller-cancellationtoken-dotnet) -- cancellation patterns in APIs
+- [Fluent-FFmpeg: Recommended Kill Process Pattern](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg/issues/138) -- Node.js FFmpeg termination discussion
+- [Transloadit: Real-time Video Filters with FFmpeg](https://transloadit.com/devtips/real-time-video-filters-in-browsers-with-ffmpeg-and-webcodecs/) -- browser video processing patterns
 
 ### LOW Confidence (single sources, need validation)
 
-- Processing time estimates (10-50x speedup native vs wasm) -- widely cited but not benchmarked for this specific workload
-- 1GB storage sufficiency -- depends on output file sizes and team usage patterns; may need adjustment
+- Processing time estimates (10-20x speedup native vs wasm) -- widely cited but not benchmarked for this specific workload
+- User preference stats (78% refuse cloud, 91% pay for on-device) -- from single source (F22 Labs), not independently verified
+- 2.5 second grace period for SIGTERM -- common pattern but no authoritative source for optimal duration
+- Device memory threshold (4GB recommendation) -- heuristic, not verified for FFmpeg.wasm specifically
 
 ---
 
-*This research supersedes the v1 FEATURES.md which focused on client-side batch processing. v2 fundamentally changes the architecture from browser-based to server-based, making most v1 feature concerns (browser memory, blob URL management, FFmpeg.wasm limitations) irrelevant.*
+*This research focuses on v3.0 features (hybrid processing toggle and job cancellation) building on top of existing v1.0 (client-side) and v2.0 (server-side) functionality. v3.0 makes both processing modes available via user choice, with server jobs gaining cancellation capability.*

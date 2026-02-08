@@ -1,205 +1,264 @@
 # Project Research Summary
 
-**Project:** Video Refresher v2.0 -- Server-Side Migration
-**Domain:** Server-side batch video processing with job queuing on Fly.io
+**Project:** Video Refresher v3.0 Hybrid Processing Milestone
+**Domain:** Hybrid client/server video processing with job cancellation
 **Researched:** 2026-02-07
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Video Refresher v2.0 migrates from client-side FFmpeg.wasm processing to a server-side Node.js + native FFmpeg backend on Fly.io, while keeping the static frontend on Cloudflare Pages. This is a well-understood architecture: a REST API accepts multi-video uploads, queues them for sequential processing by native FFmpeg, tracks job state in SQLite on a persistent Fly Volume, and serves results as streaming ZIP downloads. The stack is deliberately minimal -- 7 production dependencies, no build step, no TypeScript, no ORM, no Redis. Every technology choice is validated against npm/official sources with HIGH confidence.
+Video Refresher v3.0 adds hybrid processing to an existing video variation generator: users toggle between "Process on device" (FFmpeg.wasm 0.12.15 in browser) and "Send to server" (existing Fly.io queue). This is an additive integration on top of v2.0's server-only architecture, reintroducing the v1.0 client-side flow as an alternative path. The key architectural insight is that device and server modes are completely independent workflows—device processing never creates job records, bypasses the API entirely, and generates ZIPs client-side with JSZip. Server mode remains unchanged from v2.0, gaining only job cancellation capability (DELETE endpoint that kills FFmpeg PIDs and cleans partial files).
 
-The recommended approach is a two-tier architecture: Cloudflare Pages serves the static frontend (existing, free), and a single Fly.io Machine (shared-cpu-2x, 512MB RAM, persistent volume) runs Express 5 + native FFmpeg via `child_process.spawn()`. SQLite via better-sqlite3 serves as both the application database and job queue, eliminating the need for Redis/BullMQ entirely. Processing is sequential (one FFmpeg process at a time) which is correct for a single-machine, sub-10-user deployment. The fire-and-forget UX is achieved through persistent job state in SQLite -- users upload, close their tab, and return later to download results.
+The recommended approach is to design a unified processor abstraction layer upfront (Strategy pattern) that isolates mode-specific logic behind a common interface: init(), process(), cancel(), download(). This prevents the catastrophic code duplication and feature drift that plagues hybrid architectures. The upload view branches on mode selection but shares validation, progress UI, and download UX through the abstraction. Both modes must restore COOP/COEP headers for SharedArrayBuffer (FFmpeg.wasm multi-threading), but this breaks cross-origin API calls—the backend must add Cross-Origin-Resource-Policy headers before frontend headers are enabled, or server mode will fail with opaque CORS errors.
 
-The primary risks are infrastructure-level, not code-level. The most dangerous pitfalls are: (1) writing temp files to `/tmp` on Fly.io, which is a RAM disk that will OOM-kill the machine; (2) auto-stop killing the machine mid-processing when users close their browser tab; (3) the 1GB volume being insufficient for realistic batch workloads (peak usage for one batch can hit 1.2GB). All three have straightforward mitigations documented in the research. The storage budget is the decision that needs the most attention -- 1GB is too tight and should be increased to 3GB.
+Critical risks include JSZip memory crashes (3 videos x 20 variations = 1.2GB in browser memory), FFmpeg.wasm load failures requiring graceful fallback to server mode, and state management hell when users switch modes mid-session. Mitigation: use JSZip streaming mode, detect SharedArrayBuffer availability before showing device toggle, and disable mode switching during active processing. The biggest trap is implementing modes as separate code paths without abstraction—this leads to unmaintainable duplication and divergent feature sets. Build the processor interface in Phase 1, before writing any device-mode code.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Seven production dependencies. No build step. No Redis. No ORM. No TypeScript. See [STACK.md](STACK.md) for full rationale.
+v3.0 requires no new backend dependencies—job cancellation uses Node.js built-ins (process.kill with SIGTERM + graceful FFmpeg stdin 'q' quit command). Frontend additions are CDN-loaded libraries from the validated v1.0 stack: FFmpeg.wasm 0.12.15 (latest patch release since v1.0's 0.12.14) and JSZip 3.10.1 (unchanged, stable API). The only configuration change is restoring the Cloudflare Pages _headers file with COOP/COEP for SharedArrayBuffer support, removed in v2.0.
 
 **Core technologies:**
-- **Node.js 22 LTS**: Server runtime -- current LTS, built-in fetch/WebSocket/watch, same ecosystem as existing frontend JS
-- **Express 5.x**: HTTP server -- mature file upload ecosystem via Multer, async error handling built-in, 5 REST endpoints
-- **Multer 1.4.x**: File upload -- streams directly to disk (not memory), critical for 100MB+ video files
-- **Native FFmpeg via child_process.spawn**: Video processing -- 10-50x faster than FFmpeg.wasm, fluent-ffmpeg is archived/deprecated (May 2025)
-- **better-sqlite3 12.6.x**: Job tracking + queue -- synchronous API, zero-cost file DB on Fly Volume, no Redis needed
-- **archiver 7.0.x**: ZIP packaging -- streaming to HTTP response, STORE compression for video (no re-compression)
-- **nanoid 5.x**: Job/file IDs -- short, URL-safe, collision-resistant
+- **FFmpeg.wasm 0.12.15** (CDN): Browser-side video processing — v1.0 validated, only bug fix updates since 0.12.14, multi-threading via SharedArrayBuffer
+- **JSZip 3.10.1** (CDN): Client-side ZIP generation — v1.0 validated, STORE compression for videos, streaming mode prevents memory crashes
+- **COOP/COEP headers** (Cloudflare Pages _headers): Enable SharedArrayBuffer — required for multi-threaded FFmpeg.wasm (10x performance gain), but breaks cross-origin API calls unless backend adds CORP headers
+- **process.kill() + stdin 'q'** (Node.js built-in): Server job cancellation — graceful FFmpeg termination (2.5s SIGTERM grace period, then SIGKILL fallback)
 
-**Infrastructure:**
-- **Fly.io**: shared-cpu-2x, 512MB RAM, 1GB volume (recommend increasing to 3GB), ~$5-8/month
-- **Docker**: node:22-slim + apt-get FFmpeg, single-stage build, ~300-400MB image
-- **Auth**: `crypto.timingSafeEqual` against env var shared password (no bcrypt, no JWT, no user accounts)
-
-**Explicitly rejected:** Redis/BullMQ, TypeScript, Prisma/Drizzle, WebSocket for progress, S3/R2, fluent-ffmpeg, PM2, dotenv.
+**Critical v1.0 memory note:** FFmpeg.wasm 0.12.x neuters ArrayBuffers on writeFile() due to transferable postMessage. Always copy buffers before reuse: `new Uint8Array(buffer)`. This bug (commit 8cbd4b3) will resurface when reintroducing device processing.
 
 ### Expected Features
 
-See [FEATURES.md](FEATURES.md) for full feature landscape, dependency graph, and complexity estimates.
+Users expect a clear toggle between device and server processing modes with mode-specific tradeoffs explained (privacy vs speed). Device mode replicates v1.0's synchronous workflow (inline progress, ZIP download, no job history), while server mode extends v2.0 with job cancellation (DELETE endpoint, kill FFmpeg, clean files). The toggle uses radio buttons (not a toggle switch—users need to see both options simultaneously to compare tradeoffs), with localStorage persistence across sessions.
 
-**Must have (table stakes) -- 11 features, ~46-70 hours total:**
-- Multi-video upload (3-10 sources per batch)
-- Server-side FFmpeg processing with per-video error handling
-- Job ID + SQLite persistence with status polling endpoint
-- Fire-and-forget workflow (close tab, return for results)
-- Temporary result storage with 24h expiry + 1GB cap eviction
-- Organized ZIP download (folders per source video)
-- Shared password auth gating all endpoints
-- Upload size validation (reject before queuing)
+**Must have (table stakes):**
+- Processing mode toggle (radio buttons) with clear labels: "Process on device (private, stay on page)" vs "Send to server (faster, can close tab)"
+- Mode-specific UX flow — device: inline progress → ZIP download; server: job redirect → polling → download
+- COOP/COEP headers restored for SharedArrayBuffer (FFmpeg.wasm multi-threading)
+- Job cancellation button for server jobs in "processing" state
+- Graceful FFmpeg termination (SIGTERM with grace period, not immediate SIGKILL)
+- Partial file cleanup on cancellation (delete job directory, update status to 'cancelled')
+- Download blocked for cancelled jobs (410 Gone or hide download button)
+- Cancellation confirmation ("Are you sure? This cannot be undone")
 
-**Should have (low-complexity differentiators):**
-- SSE progress stream (real-time updates while tab open, polling fallback)
-- Job list page (see all active/completed/expired jobs)
-- Processing time estimates (extrapolate from first video)
-- Metadata JSON manifest in ZIP
+**Should have (competitive differentiators):**
+- Automatic capability detection — if WebAssembly/SharedArrayBuffer unavailable, hide device option and explain why
+- Mode recommendation badges — "Recommended for privacy" (device) vs "Recommended for speed" (server)
+- Cancel progress indicator — "Cancelling job..." spinner during FFmpeg kill
+- Server unavailable fallback — auto-switch to device mode if server returns 5xx
 
-**Defer to post-MVP:**
-- Resumable upload, job cancellation, retry failed videos, storage usage indicator, webhook notifications
-
-**Explicitly reject:**
-- Per-user accounts, WebSocket frame streaming, cloud object storage, persistent history, video format conversion, manual effect selection, queue priority, horizontal scaling, video preview/streaming, comparison UI, custom presets
+**Defer (v2+ anti-features):**
+- Toggle switch for mode selection (use radio buttons instead — toggles imply on/off settings, not workflow choices)
+- Hybrid mode (split processing across device + server) — adds complexity, unpredictable results, confusing UX
+- Automatic mode switching mid-job — corrupts state, defeats purpose of mode choice
+- Per-video mode selection — batch should use one consistent mode
+- Pause/resume for device processing — FFmpeg.wasm 0.12.x doesn't expose mid-encoding pause API
+- Retry from checkpoint — requires storing partial state, adds complexity for minimal value
 
 ### Architecture Approach
 
-Two-tier architecture: static Cloudflare Pages frontend talks to a single Fly.io Machine backend over HTTPS REST. See [ARCHITECTURE.md](ARCHITECTURE.md) for component details, data flow diagrams, and build order.
+v3.0 is an additive integration where device and server modes are completely independent paths after upload view mode selection. The upload view branches on processing mode: device calls lib/device-processor.js (orchestrates Web Worker FFmpeg.wasm execution, JSZip generation, blob download) while server calls existing v2.0 API flow (POST /api/jobs, poll status, stream ZIP). Device processing runs FFmpeg.wasm in a dedicated Web Worker (required for multi-threading), shares effect generation logic with server via extracted lib/effects.js, and never creates job records. Server mode gains DELETE /api/jobs/:id endpoint that kills FFmpeg by PID (stored in job_files.current_ffmpeg_pid), cleans partial output files, and marks status as 'cancelled'.
 
-**Major components (8 total):**
-1. **Express API Server** -- 5-8 REST endpoints, foundation for everything
-2. **File Upload Handler (Multer)** -- streams to Fly Volume disk, never memory
-3. **SQLite Job Queue (better-sqlite3)** -- persists job state, enables fire-and-forget
-4. **FFmpeg Processing Engine** -- `child_process.spawn`, progress parsing from stderr
-5. **In-Process Job Worker** -- sequential FIFO processing, polls SQLite every 2s
-6. **Authentication Middleware** -- HMAC bearer tokens, 24h expiry
-7. **Cleanup Scheduler** -- hourly deletion of expired jobs and orphaned files
-8. **Modified Frontend** -- ~400 LOC API client replacing ~1000 LOC FFmpeg.wasm code
+**Major components:**
+1. **views/upload.js** (modified) — toggle UI + mode-aware submit handler that branches to device or server flow
+2. **lib/device-processor.js** (new) — orchestrate local FFmpeg.wasm processing: create worker, send messages (LOAD/PROCESS/TERMINATE), aggregate progress, generate ZIP with JSZip streaming, trigger download
+3. **workers/ffmpeg-worker.js** (new, restored from v1.0) — Web Worker running FFmpeg.wasm 0.12.x, handles LOAD/PROCESS/TERMINATE messages, copies buffers to avoid neutering
+4. **lib/effects.js** (new, extracted from server) — shared effect generation algorithm for deterministic variations across both modes
+5. **server/routes/jobs.js** (modified) — add DELETE /:id endpoint for cancellation: kill FFmpeg PID (SIGTERM with 2.5s grace), clean job directory, update status to 'cancelled'
+6. **Cloudflare Pages _headers** (restored) — COOP: same-origin, COEP: require-corp for SharedArrayBuffer, requires backend CORP headers or API calls break
 
-**Key patterns:** Disk-based processing (Node.js never touches video bytes), streaming ZIP download (never buffer entire ZIP), polling with exponential backoff, graceful SIGTERM shutdown.
-
-**Anti-patterns to avoid:** Memory-buffered uploads, reading FFmpeg output into Node buffers, SSE with Fly.io auto-stop, fluent-ffmpeg, multi-machine deployment.
+**Critical pattern:** Design processor abstraction upfront (Strategy pattern) with common interface: init(), process(files, variations, onProgress), cancel(), download(result). Device and server modes implement this interface independently. Upload view uses processor instance without knowing implementation details. This prevents catastrophic code duplication and feature drift.
 
 ### Critical Pitfalls
 
-See [PITFALLS.md](PITFALLS.md) for all 17 pitfalls with detailed prevention and detection strategies.
+Top 5 pitfalls from research that cause rewrites or breaking changes:
 
-**Top 5 (all CRITICAL severity):**
+1. **COOP/COEP headers break server API calls** — Enabling Cross-Origin-Embedder-Policy: require-corp for SharedArrayBuffer forces ALL cross-origin resources (including API calls to Fly.io backend) to opt-in via CORP headers. Without Cross-Origin-Resource-Policy: cross-origin on backend responses, server mode fails with opaque CORS errors. Prevention: Add CORP header to all backend responses BEFORE enabling frontend COEP, or use COEP: credentialless mode (strips credentials from cross-origin requests).
 
-1. **Fly.io /tmp is a RAM disk** -- Writing uploaded videos to `/tmp` eats RAM and OOM-kills the machine. Always write to the Fly Volume path (`/data/`). Set `TMPDIR=/data/tmp/` in Dockerfile.
-2. **Auto-stop kills machine mid-processing** -- Fire-and-forget means no active HTTP connections, so Fly.io thinks the machine is idle. Mitigate by setting `min_machines_running = 1` or disabling auto-stop entirely (~$2-3/month cost).
-3. **1GB volume is too small** -- One batch (3 sources x 10 variations x 20MB avg) peaks at ~1.28GB counting source + output + working files. Increase volume to 3GB minimum. Stream ZIPs to response (never write to disk).
-4. **Deploy kills in-progress jobs** -- `fly deploy` destroys and recreates the machine. Implement SIGTERM handler that marks jobs as interrupted. Set `kill_timeout = 300`. Check for active jobs before deploying.
-5. **FFmpeg stderr pipe buffer deadlock** -- FFmpeg writes verbose output to stderr. If not consumed, the 64KB pipe buffer fills and FFmpeg blocks forever. Always attach a `stderr.on('data')` handler or set stdio to `'ignore'`.
+2. **Dual processing modes without abstraction layer** — Implementing device and server modes as separate code paths leads to massive duplication: upload validation, progress tracking, error handling, result presentation all duplicated with slight variations. Over time, modes diverge—bugs fixed in one aren't fixed in the other. Prevention: Design unified processor interface (Strategy pattern) in Phase 1 BEFORE writing device-mode code. Both modes implement init(), process(), cancel(), download() behind common abstraction.
+
+3. **JSZip browser memory crashes with large batches** — Processing 3 videos x 20 variations = 60 videos at 20MB each = 1.2GB of video data. JSZip's default behavior buffers entire ZIP in RAM before download, causing "Out of memory" tab crashes (Chrome: 2GB limit, Safari: 1GB). Prevention: Use JSZip streaming mode (streamFiles: true) and STORE compression (no re-compression of already-compressed H.264 videos), or cap device mode at 3 files x 10 variations.
+
+4. **No graceful degradation when FFmpeg.wasm fails to load** — CDN timeout, blocked jsdelivr, missing COOP/COEP headers, Safari incompatibility all cause FFmpeg.wasm to fail loading. User sees infinite spinner or cryptic error with no fallback. Prevention: Detect SharedArrayBuffer availability before showing device toggle, add timeout on FFmpeg load (10s) with confirm() fallback to server mode, show loading state ("Loading FFmpeg.wasm...") with disabled button until ready.
+
+5. **State management hell when switching modes mid-session** — User starts device processing, realizes it's slow, tries to switch to server mid-job. App state corrupts: some files processed, progress UI shows wrong values, FFmpeg memory not released, Blob URLs leak. Prevention: Disable mode switching during active processing (grey out toggle, show "Cannot switch modes during processing" warning), implement full cleanup on mode switch (terminate worker, revoke Blob URLs, abort fetch), use state machine for valid transitions.
 
 ## Implications for Roadmap
 
-Based on combined research, the architecture has a clean dependency chain that dictates a 5-phase build order. Each phase produces a testable artifact and addresses specific pitfalls.
+Based on research, v3.0 should be structured in 4 phases ordered by dependencies and risk mitigation. The most critical insight is that Phase 1 must establish the processor abstraction layer and restore COOP/COEP infrastructure before any device-mode code is written—retrofitting abstraction after both modes exist is 5x harder. Server job cancellation can be developed independently as Phase 3 (no frontend dependency), allowing parallel work after Phase 2 completes.
 
-### Phase 1: Backend Foundation (API + DB + Auth + Deploy)
+### Phase 1: Foundation & Infrastructure
+**Rationale:** Both device and server modes depend on this infrastructure. COOP/COEP headers must be deployed with backend CORP headers before device processing code exists, or server mode breaks. Processor abstraction prevents catastrophic code duplication if designed upfront (impossible to retrofit cleanly later).
 
-**Rationale:** Everything depends on the API contract and data persistence layer existing first. Auth gates all endpoints. SQLite schema defines the data model for all subsequent phases. Deploying to Fly.io immediately validates the infrastructure (volume, Docker, FFmpeg binary) before writing complex processing logic.
-**Delivers:** Running Express server on Fly.io with SQLite, Multer uploads to volume, bearer token auth, health check endpoint. Jobs can be created and queried but not processed (processing is stubbed).
-**Features addressed:** Shared password auth, multi-video upload, job ID + SQLite tracking, upload size validation
-**Pitfalls to avoid:** /tmp RAM disk trap (Pitfall 1), memory buffering (Pitfall 2), SQLite WAL mode (Pitfall 7), FFmpeg binary not found in Docker (Pitfall 12), HTTPS enforcement (Pitfall 13)
-**Stack elements:** Express 5, Multer, better-sqlite3, nanoid, cors, Dockerfile, fly.toml
+**Delivers:**
+- Backend CORP headers added to all API responses (prevents COEP from breaking server mode)
+- Cloudflare Pages _headers file restored with COOP/COEP (enables SharedArrayBuffer)
+- Processor abstraction interface designed (Strategy pattern: init, process, cancel, download)
+- Effect generation extracted from server to shared lib/effects.js
+- Browser capability detection (SharedArrayBuffer, crossOriginIsolated, WebAssembly)
 
-### Phase 2: FFmpeg Processing Engine
+**Addresses features:**
+- COOP/COEP headers (table stakes from FEATURES.md)
+- Mode-specific UX flow routing infrastructure
 
-**Rationale:** Core value proposition of v2. Once the API skeleton exists and is deployed, add the processing engine that turns uploaded videos into variations. This is the highest-risk phase technically (FFmpeg spawn, progress parsing, error handling per video).
-**Delivers:** Working video processing -- submit a job via API, FFmpeg processes it, output files appear on volume, progress updates written to SQLite.
-**Features addressed:** Server-side FFmpeg processing, error handling per video, variations per batch
-**Pitfalls to avoid:** Pipe buffer deadlock (Pitfall 8), thread oversubscription on shared CPU (Pitfall 6), filter syntax differences native vs wasm (Pitfall 16)
-**Stack elements:** child_process.spawn, native FFmpeg in Docker
+**Avoids pitfalls:**
+- Pitfall 1 (COEP breaks API calls) — backend CORP headers prevent this
+- Pitfall 2 (no abstraction layer) — design upfront, not retrofit
+- Pitfall 4 (no FFmpeg load fallback) — capability detection infrastructure
 
-### Phase 3: Download, Cleanup, and Job Lifecycle
+**Validation:** Deploy _headers, verify SharedArrayBuffer available, test server API calls still work, smoke test server processing unchanged.
 
-**Rationale:** Completes the backend lifecycle: upload -> process -> download -> expire. Without cleanup, the volume fills within days. Without download, processing is pointless. This phase makes the backend fully functional and testable end-to-end via curl.
-**Delivers:** Streaming ZIP download, 24h auto-expiry, storage cap enforcement, graceful shutdown on SIGTERM, restart recovery (interrupted jobs re-queued).
-**Features addressed:** Result download (ZIP), temporary storage with eviction, fire-and-forget persistence, per-source-video folders
-**Pitfalls to avoid:** ZIP doubles storage (Pitfall 15), no cleanup daemon (Pitfall 11), auto-stop kills jobs (Pitfall 3), deploy job loss (Pitfall 5), volume undersized (Pitfall 4)
-**Stack elements:** archiver, node-cron
+### Phase 2: Device Processing Core
+**Rationale:** Build device processing against the processor abstraction designed in Phase 1. Web Worker is architectural decision that affects all device-mode code (multi-threading requires Worker scope), must come before upload view integration. Dependencies: Phase 1 (COOP/COEP headers, processor interface).
 
-### Phase 4: Frontend Integration
+**Delivers:**
+- workers/ffmpeg-worker.js (Web Worker running FFmpeg.wasm 0.12.15)
+- lib/device-processor.js implementing processor interface
+- JSZip streaming integration for client-side ZIP generation
+- Promise-based worker communication wrapper
+- ArrayBuffer copying to prevent neutering (v1.0 bug fix)
 
-**Rationale:** Backend is now feature-complete and testable via curl. Frontend can be rewritten as a thin API client without risk of backend API changes. This phase is the largest UX change -- removing all FFmpeg.wasm code and replacing it with fetch/FormData API calls.
-**Delivers:** Working end-to-end application in the browser -- login screen, multi-file upload, polling progress bar, download button, job list page.
-**Features addressed:** Fire-and-forget UX, progress tracking (polling with exponential backoff), job list page
-**Pitfalls to avoid:** Still loading FFmpeg.wasm bundles (Pitfall 14), wrong error UX for server errors vs client errors (Pitfall 17)
-**Stack elements:** Fetch API, FormData, existing CSS/HTML with modifications
+**Addresses features:**
+- Device processing path (replicates v1.0 synchronous workflow)
+- ZIP download for device mode
 
-### Phase 5: Production Hardening and Polish
+**Avoids pitfalls:**
+- Pitfall 3 (JSZip memory crash) — use streamFiles: true, STORE compression
+- Pitfall 8 (FFmpeg not in Worker) — run FFmpeg in Worker from start, not main thread
+- v1.0 buffer neutering bug — copy buffers before writeFile()
 
-**Rationale:** System works end-to-end. Final phase is production validation of fire-and-forget (close tab, return for results), auto-stop/start behavior, graceful deploys, and optional polish features.
-**Delivers:** Production-hardened system with verified fire-and-forget workflow, validated auto-stop interaction, and optional enhancements (SSE progress, time estimates, metadata manifest).
-**Features addressed:** SSE progress stream (optional), processing time estimates (optional), metadata JSON manifest in ZIP (optional)
-**Pitfalls to avoid:** Cold start latency (Pitfall 9), deploy downtime (Pitfall 5), auto-stop + polling interaction (Pitfall 3)
+**Uses stack:** FFmpeg.wasm 0.12.15, JSZip 3.10.1, lib/effects.js for filter strings
+
+**Validation:** Test single file + single variation in isolation (no UI), verify multi-threading active (DevTools Performance tab), test ZIP download with 3 files x 5 variations (memory stress test).
+
+### Phase 3: Server Job Cancellation (Parallel with Phase 4)
+**Rationale:** Server-side change with no frontend dependency until Phase 4. Can be developed in parallel with upload view integration. Graceful FFmpeg termination (stdin 'q' + SIGTERM grace period) prevents corrupting partial output files.
+
+**Delivers:**
+- DELETE /api/jobs/:id endpoint (kill FFmpeg by PID, clean files, update status)
+- Graceful FFmpeg termination logic (stdin 'q\r\n', 2.5s SIGTERM grace, SIGKILL fallback)
+- Partial file cleanup (delete job directory from Fly Volume)
+- CANCELLED job state in SQLite (distinct from FAILED/EXPIRED)
+- Download endpoint guard (410 Gone for cancelled jobs)
+
+**Addresses features:**
+- Job cancellation button (table stakes from FEATURES.md)
+- Partial file cleanup
+- Download blocked for cancelled jobs
+
+**Avoids pitfalls:**
+- Pitfall 6 (no backend cancellation API) — build this before showing cancel button in UI
+
+**Uses stack:** process.kill() + stdin 'q' (Node.js built-ins), existing SQLite job_files.current_ffmpeg_pid
+
+**Validation:** Start server job, call DELETE endpoint, verify FFmpeg process killed (ps aux), verify partial files deleted, verify status updated to 'cancelled', verify download returns 410.
+
+### Phase 4: Upload View Integration
+**Rationale:** Wires device-processor and server-processor to UI through mode toggle. Depends on Phase 2 (device-processor exists) and Phase 3 (cancellation API exists) for full feature parity. Mode toggle designed with radio buttons (not toggle switch—users need to see both options simultaneously).
+
+**Delivers:**
+- Processing mode toggle UI (radio buttons with clear labels)
+- Submit handler branching (device → processLocally, server → existing v2.0 flow)
+- localStorage mode preference persistence
+- Shared progress UI between modes (onProgress callback abstraction)
+- Cancel button in job-detail view (calls DELETE endpoint for server jobs)
+- Cancellation confirmation modal ("Are you sure? This cannot be undone")
+- Error handling and fallback (FFmpeg load failure → confirm switch to server)
+
+**Addresses features:**
+- Processing mode toggle with clear labels (table stakes)
+- Mode preference persistence (localStorage)
+- Cancel button UI with confirmation
+- Automatic capability detection (show/hide device option)
+
+**Avoids pitfalls:**
+- Pitfall 5 (state management hell) — disable mode switching during processing
+- Pitfall 7 (upload flow divergence) — unified validation before mode split
+- Pitfall 9 (mode persistence confusion) — clear state on page load, reset on FFmpeg failure
+
+**Uses stack:** Both processors (device-processor.js, server-processor.js via API), localStorage for preference
+
+**Validation:** Toggle between modes with files selected (verify no leaks), start device processing and cancel (verify worker terminated), start server processing and cancel (verify FFmpeg killed), refresh page mid-processing (verify sane recovery), test mode selection with SharedArrayBuffer unavailable (verify device hidden).
 
 ### Phase Ordering Rationale
 
-- **Phases are strictly sequential.** Each phase produces a testable artifact that the next phase builds on.
-- **Deploy-first approach.** Phase 1 includes Fly.io deployment so infrastructure problems (volume mount, FFmpeg binary, Docker build) surface immediately rather than at the end.
-- **Risk front-loading.** Phase 2 (FFmpeg processing) is the highest-risk technical work and comes second so problems surface early, before the frontend is built.
-- **Cleanup before frontend.** Phase 3 ensures storage management works before team usage begins. A full volume is worse than a missing UI feature.
-- **Frontend is a thin client.** By the time Phase 4 starts, the entire backend is curl-verified. Frontend work is purely UI/UX with no architectural risk.
+- **Phase 1 first:** Backend CORP headers must exist before frontend COEP enabled (or server mode breaks instantly). Processor abstraction impossible to retrofit after separate code paths exist. Capability detection needed before showing device toggle.
+- **Phase 2 before 4:** Device-processor must exist before upload view can call it. Web Worker architecture decision affects all subsequent code.
+- **Phase 3 parallel with 4:** Server cancellation endpoint has no frontend dependency. Can develop in parallel with upload view integration for schedule efficiency.
+- **Phase 4 last:** Integration phase that depends on both device-processor (Phase 2) and cancellation API (Phase 3) existing. Wires everything together.
+
+**Critical path:** Phase 1 → Phase 2 → Phase 4 (device processing). Phase 1 → Phase 3 → Phase 4 (server cancellation). Both paths converge in Phase 4.
+
+**Avoid:** Don't skip processor abstraction in Phase 1 ("we'll refactor later"). Don't enable COEP before backend CORP headers exist. Don't write device mode code before confirming FFmpeg runs in Worker. These shortcuts create unfixable architecture debt.
 
 ### Research Flags
 
-**Phases likely needing deeper research during planning:**
-- **Phase 1:** Fly.io volume mount verification, CORS between Cloudflare Pages and Fly.io, Express 5 + Multer disk storage integration. Consider `/gsd:research-phase` for Fly.io-specific Docker + volume setup.
-- **Phase 2:** FFmpeg filter chain porting from v1 `app.js` to native FFmpeg 7.x (version differences in filter syntax, defaults, color space handling). Must test every effect combination. May need phase-level research if filters diverge.
+Phases likely needing deeper research during planning:
+- **Phase 3 (Server Cancellation):** FFmpeg graceful termination timing (optimal grace period between SIGTERM and SIGKILL), handling edge cases (PID missing, process already dead, partial files mid-write)
+- **Phase 4 (State Management):** State machine design for valid mode transitions, localStorage vs sessionStorage tradeoffs, worker lifecycle management
 
-**Phases with well-documented patterns (skip research):**
-- **Phase 3:** Streaming ZIP with archiver and cron-based cleanup are standard Node.js patterns. SIGTERM handling well-documented.
-- **Phase 4:** Standard fetch/FormData API client work. No novel patterns.
-- **Phase 5:** Standard Fly.io deployment validation. Well-documented in official docs.
+Phases with standard patterns (skip research-phase):
+- **Phase 1 (COOP/COEP Setup):** Well-documented Cloudflare Pages feature, official MDN guides available
+- **Phase 2 (FFmpeg.wasm Integration):** v1.0 validated implementation exists (commit 8cbd4b3), only need to update to 0.12.15
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All versions verified against npm/official sources. Express 5 stable (5.2.1), better-sqlite3 v12.6.2 (Jan 2026), fluent-ffmpeg deprecation confirmed. |
-| Features | MEDIUM-HIGH | Feature set synthesized from job queue patterns, async API design, and domain knowledge. Complexity estimates (46-70h total) need validation during implementation. |
-| Architecture | HIGH | Two-tier architecture is standard. Component boundaries well-defined. Fly.io deployment patterns verified against official docs and community examples. |
-| Pitfalls | HIGH | 11 of 17 pitfalls verified against official documentation or community reports with linked sources. Remaining 6 are standard engineering patterns with high confidence. |
+| Stack | HIGH | FFmpeg.wasm 0.12.15 and JSZip 3.10.1 validated in v1.0 (only bug fix updates since). process.kill() is Node.js built-in. COOP/COEP headers are official Cloudflare Pages feature. |
+| Features | MEDIUM-HIGH | Mode toggle UX patterns verified via NN/g research. Job cancellation patterns confirmed via community consensus. 78% on-device AI preference stat from single source (needs validation). |
+| Architecture | HIGH | Processor abstraction is standard Strategy pattern. Web Worker requirement verified via FFmpeg.wasm docs and SharedArrayBuffer specs. v1.0 and v2.0 provide concrete implementation reference. |
+| Pitfalls | HIGH | COOP/COEP breaking API calls verified via MDN docs and web.dev guide. JSZip memory limits confirmed via GitHub issues. Code duplication risk is universal software pattern (high confidence in mitigation). |
 
 **Overall confidence:** HIGH
 
+Research is strong enough to proceed to roadmap creation with minimal validation risk. The combination of v1.0 validated client-side code, v2.0 validated server-side code, and official documentation for integration points (COOP/COEP, SharedArrayBuffer) provides high certainty. The processor abstraction pattern is well-established software engineering (Strategy pattern), reducing architecture risk.
+
 ### Gaps to Address
 
-- **Volume size: 1GB vs 3GB.** Research strongly recommends 3GB minimum. The arithmetic is clear: one batch of 3 sources x 10 variations at 20MB average peaks at ~1.28GB. This must be decided before Phase 1 creates the Fly Volume. Recommendation: use 3GB ($0.45/month instead of $0.15/month).
-- **Auto-stop vs always-on.** Research recommends `min_machines_running = 1` or disabling auto-stop entirely. This trades ~$2-3/month for zero risk of mid-processing machine kills. Recommendation: set `min_machines_running = 1` and revisit after observing actual usage patterns.
-- **FFmpeg filter parity (native vs wasm).** The exact visual output of effect filters may differ between FFmpeg.wasm (based on FFmpeg 5-6.x) and native FFmpeg 7.x. Needs empirical testing during Phase 2 with actual ad creative files.
-- **Processing speed claims.** The 10-50x speedup of native FFmpeg over wasm is widely cited but not benchmarked for this specific workload (short ad creatives with rotation/brightness/contrast/saturation effects). Will be validated empirically in Phase 2.
-- **SSE vs polling for progress.** Architecture research recommends polling (simpler, works with auto-stop). Features research recommends SSE as a differentiator. Recommendation: implement polling in Phase 4, add SSE in Phase 5 only if polling UX feels sluggish.
-- **Dockerfile base image.** STACK.md recommends `node:22-slim` (Debian). ARCHITECTURE.md draft mentions `node:20-alpine`. Use `node:22-slim` -- it avoids Alpine build toolchain issues with better-sqlite3 native addon and uses the correct Node.js LTS version.
+Areas where research was inconclusive or needs validation during implementation:
+
+- **Optimal SIGTERM grace period:** Research suggests 2.5-5s for graceful FFmpeg shutdown, but not benchmarked for this specific workload. Recommendation: Start with 2.5s (conservative), add telemetry to measure actual FFmpeg exit times, adjust if needed.
+
+- **JSZip memory threshold:** Research shows browser memory limits (Chrome 2GB, Safari 1GB) but exact crash point depends on user's device and other tabs. Recommendation: Cap device mode at 3 files x 10 variations (conservative ~600MB), add pre-flight check that warns if estimated ZIP >500MB.
+
+- **Device mode processing time estimates:** Research cites 10-20x speedup (native FFmpeg vs FFmpeg.wasm) but not benchmarked for this specific effect pipeline. Recommendation: Don't show time estimates in MVP, add after collecting real-world data in Phase 5 polish.
+
+- **COEP credentialless browser support:** Alternative to require-corp that's less disruptive, but browser support varies (Chrome 96+, Firefox/Safari unclear). Recommendation: Start with require-corp + backend CORP headers (universal support), consider credentialless in v3.1 if CORP causes third-party script issues.
+
+- **Cancelled jobs and storage quota:** Should cancelled job metadata (SQLite) count toward 3GB volume quota? Research unclear. Recommendation: SQLite metadata doesn't count (it's in database file, not job directories). Only files on disk count toward quota. Document this decision in cancellation implementation.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Express 5 release](https://expressjs.com/2025/03/31/v5-1-latest-release.html) -- Express 5 now default on npm
-- [better-sqlite3 npm](https://www.npmjs.com/package/better-sqlite3) -- v12.6.2, Jan 2026
-- [Fly.io Volumes overview](https://fly.io/docs/volumes/overview/) -- volume/machine 1:1 mapping
-- [Fly.io Autostop/Autostart](https://fly.io/docs/launch/autostop-autostart/) -- auto-stop behavior
-- [Fly.io Machine Sizing](https://fly.io/docs/machines/guides-examples/machine-sizing/) -- shared-cpu behavior
-- [Fly.io Deploy Docs](https://fly.io/docs/launch/deploy/) -- deployment with volumes
-- [fluent-ffmpeg archived](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg/issues/1324) -- archived May 2025
-- [Multer docs](https://expressjs.com/en/resources/middleware/multer.html) -- DiskStorage engine
-- [Node.js child_process](https://nodejs.org/api/child_process.html) -- spawn pipe buffer behavior
-- [SQLite WAL mode](https://sqlite.org/wal.html) -- concurrent access
+- **v1.0 Implementation** (commit 8cbd4b3) — FFmpeg.wasm 0.12.14 validated, ArrayBuffer neutering bug fix, JSZip ZIP generation, BlobURLRegistry pattern
+- **v2.0 Codebase** (existing) — Server-side FFmpeg spawning, job queue patterns, SQLite schema (job_files.current_ffmpeg_pid), API authentication
+- **[@ffmpeg/ffmpeg npm](https://www.npmjs.com/package/@ffmpeg/ffmpeg)** — Version 0.12.15 confirmed latest, API documentation
+- **[FFmpeg.wasm Official Docs](https://ffmpegwasm.netlify.app/)** — Class API, usage patterns, multi-threading requirements
+- **[JSZip Documentation](https://stuk.github.io/jszip/)** — API reference, limitations (memory), streaming mode (streamFiles: true)
+- **[MDN: Cross-Origin-Embedder-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy)** — COEP behavior, require-corp vs credentialless
+- **[MDN: SharedArrayBuffer](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer)** — Browser support, cross-origin isolation requirements
+- **[web.dev: Making your website cross-origin isolated using COOP and COEP](https://web.dev/articles/coop-coep)** — How COOP/COEP enable SharedArrayBuffer, impact on resources
+- **[Cloudflare Pages Headers Documentation](https://developers.cloudflare.com/pages/configuration/headers/)** — _headers file syntax, propagation timing
 
 ### Secondary (MEDIUM confidence)
-- [SSE vs WebSocket comparison](https://dev.to/haraf/server-sent-events-sse-vs-websockets-vs-long-polling-whats-best-in-2025-5ep8) -- SSE for progress
-- [Fly.io community: FFmpeg speed](https://community.fly.io/t/speedup-ffmpeg-video-processing/23584) -- burst CPU
-- [Fly.io community: /tmp is RAM disk](https://community.fly.io/t/tmp-storage-and-small-volumes/9854) -- tmpfs behavior
-- [Fly.io community: long-running tasks + auto-stop](https://community.fly.io/t/handling-long-running-tasks-with-automatic-machine-shutdown-on-fly-io/24256) -- job loss
-- [HTTP 202 Accepted pattern](https://apidog.com/blog/status-code-202-accepted/) -- async request-reply
+- **[Nielsen Norman Group: Toggle Switch Guidelines](https://www.nngroup.com/articles/toggle-switch-guidelines/)** — When to use toggles vs radio buttons (toggles for immediate effect, radio for choice)
+- **[Nielsen Norman Group: Cancel vs Close](https://www.nngroup.com/articles/cancel-vs-close/)** — Distinguishing cancel actions, confirmation patterns
+- **[FFmpeg.wasm Performance Docs](https://ffmpegwasm.netlify.app/docs/performance/)** — 10-20x slower than native (cited but not benchmarked for this workload)
+- **[JSZip GitHub Issues #135](https://github.com/Stuk/jszip/issues/135)** — Memory issues with large batches confirmed by community
+- **[JSZip GitHub Issues #308](https://github.com/Stuk/jszip/issues/308)** — Streaming solutions, streamFiles flag
+- **[LogRocket: Nondestructive Cancel Buttons](https://blog.logrocket.com/ux-design/how-to-design-nondestructive-cancel-buttons/)** — Confirmation dialog patterns
+- **[FFmpeg Termination Best Practices (ServiioWiki)](https://wiki.serviio.org/doku.php?id=ffmpeg_term)** — stdin 'q' for graceful stop, SIGTERM before SIGKILL
+- **[Fluent-FFmpeg: Recommended Kill Process Pattern (GitHub Issue #138)](https://github.com/fluent-ffmpeg/node-fluent-ffmpeg/issues/138)** — Community consensus on FFmpeg termination
+- **[On-Device AI Guide (F22 Labs)](https://www.f22labs.com/blogs/what-is-on-device-ai-a-complete-guide/)** — User preference stats (78% refuse cloud AI for privacy)
 
-### Tertiary (LOW confidence, needs validation)
-- Processing speedup claims (10-50x native vs wasm) -- not benchmarked for this workload
-- 1GB storage sufficiency -- arithmetic says insufficient, needs real-world validation
-- Auto-stop + polling interaction -- should work per docs, needs testing on Fly.io
+### Tertiary (LOW confidence)
+- **Processing time estimates** (10-20x speedup native vs wasm) — Widely cited but not benchmarked for this specific workload
+- **User preference stats** (78% refuse cloud, 91% pay for on-device) — Single source (F22 Labs), not independently verified
+- **2.5 second grace period** for SIGTERM — Common pattern but no authoritative source for optimal duration
+- **Device memory threshold** (4GB recommendation) — Heuristic, not verified for FFmpeg.wasm specifically
 
 ---
 *Research completed: 2026-02-07*
-*Supersedes v1.0 client-side research summary (2026-02-06)*
+*Supersedes v2.0 server-side research summary*
 *Ready for roadmap: yes*
