@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 8 of 9 (Download, Cleanup, and Job Lifecycle) -- third phase of v2.0 milestone
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-08 -- Completed 08-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-08 -- Completed 08-02-PLAN.md
 
-Progress: [=========] 94% (15 of 16 plans complete)
+Progress: [█████████] 100% (16 of 16 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [=========] 94% (15 of 16 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 7
+- Total plans completed: 8
 - Average duration: 2.1 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 in progress 1/2)
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans)
 
 *Updated after each plan completion*
 
@@ -64,6 +64,10 @@ Recent decisions affecting current work:
 | 08-01-store | Use archiver { store: true } for ZIPs | 08-01 | STORE method prevents re-compression of H.264 |
 | 08-01-folders | Organize ZIP by source video name folders | 08-01 | Groups variations by original filename |
 | 08-01-cleanup | Best-effort upload cleanup after processing | 08-01 | Log errors, don't fail jobs on cleanup issues |
+| 08-02-interval | 5-minute cleanup interval | 08-02 | Balances responsiveness with CPU overhead |
+| 08-02-threshold | 85% eviction threshold | 08-02 | Provides buffer before hitting 3GB volume limit |
+| 08-02-stuck | Mark stuck queued jobs failed before expiry | 08-02 | Prevents orphaned queued jobs past expiry |
+| 08-02-datadir | Pass DATA_DIR to CleanupDaemon for statfsSync | 08-02 | Volume mount point needed for accurate disk stats |
 
 ### Pending Todos
 
@@ -76,9 +80,11 @@ None yet.
 
 **Phase 7 Complete:** Processing engine, queue worker, recovery, and process management all implemented.
 
+**Phase 8 Complete:** Download endpoint, cleanup daemon, and full job lifecycle management (creation → processing → download → expiry/eviction).
+
 ## Session Continuity
 
 Last session: 2026-02-08
-Stopped at: Completed 08-01-PLAN.md (Download and Cleanup)
+Stopped at: Completed 08-02-PLAN.md (Cleanup Job Lifecycle)
 Resume file: None
-Next: Execute 08-02-PLAN.md (Cleanup Job)
+Next: Plan Phase 9 (Frontend Integration)
