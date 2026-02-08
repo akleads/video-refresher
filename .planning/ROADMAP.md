@@ -46,11 +46,11 @@ Phases 6-9 delivered server-side video processing on Fly.io with multi-video bat
   2. Backend API responses include Cross-Origin-Resource-Policy: cross-origin header, and frontend fetches to the API succeed under COEP
   3. A shared effects module generates identical effect parameter sets when given the same seed, usable from both browser and server contexts
   4. Browser capability detection correctly identifies whether SharedArrayBuffer is available and reports this to the UI layer
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md -- Backend CORP header middleware + shared effects module with seedrandom
+- [ ] 10-02-PLAN.md -- Frontend COOP/COEP headers + browser capability detection
 
 ### Phase 11: Device Processing Core
 **Goal**: Users can process videos entirely in the browser using FFmpeg.wasm, with progress feedback and ZIP download, without touching the server API
@@ -108,7 +108,7 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 7. FFmpeg Processing Engine | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 8. Download, Cleanup, Job Lifecycle | v2.0 | 2/2 | Complete | 2026-02-07 |
 | 9. Frontend Integration | v2.0 | 4/4 | Complete | 2026-02-08 |
-| 10. Foundation & Abstraction | v3.0 | 0/TBD | Not started | - |
+| 10. Foundation & Abstraction | v3.0 | 0/2 | Not started | - |
 | 11. Device Processing Core | v3.0 | 0/TBD | Not started | - |
 | 12. Server Job Cancellation | v3.0 | 0/TBD | Not started | - |
 | 13. Upload View Integration | v3.0 | 0/TBD | Not started | - |
