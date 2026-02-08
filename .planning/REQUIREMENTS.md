@@ -1,0 +1,80 @@
+# Requirements: Video Refresher v3.0
+
+**Defined:** 2026-02-08
+**Core Value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
+
+## v3.0 Requirements
+
+Requirements for hybrid processing and job cancellation. Each maps to roadmap phases.
+
+### Infrastructure
+
+- [ ] **INFRA-06**: COOP/COEP headers restored on Cloudflare Pages for SharedArrayBuffer support
+- [ ] **INFRA-07**: Backend sends Cross-Origin-Resource-Policy: cross-origin header for COEP compatibility
+
+### Device Processing
+
+- [ ] **DEVC-01**: FFmpeg.wasm 0.12.x runs in Web Worker with multi-threaded support
+- [ ] **DEVC-02**: Client-side ZIP generation with JSZip streaming mode for large batches
+- [ ] **DEVC-03**: Per-variation progress tracking during device processing
+- [ ] **DEVC-04**: Device processing bypasses server API entirely (no job tracking, local-only)
+- [ ] **DEVC-05**: Browser capability detection -- fallback to server mode if SharedArrayBuffer unavailable
+
+### Processing Mode
+
+- [ ] **MODE-01**: Radio button toggle on upload page: "Process on device" vs "Send to server"
+- [ ] **MODE-02**: Mode preference persisted in localStorage across sessions
+- [ ] **MODE-03**: Shared effect generation library used by both device and server modes (identical variations)
+
+### Job Cancellation
+
+- [ ] **CANC-01**: Cancel button on job detail page for in-progress server jobs
+- [ ] **CANC-02**: Server cancellation endpoint kills FFmpeg process and cleans up partial files
+- [ ] **CANC-03**: Graceful FFmpeg termination sequence (stdin 'q' → SIGTERM → SIGKILL)
+- [ ] **CANC-04**: Cancelled jobs show "Cancelled" status in job history
+
+## Future Requirements
+
+Deferred to post-v3.0 milestones.
+
+- **SSE-01**: Server-Sent Events for real-time server job progress
+- **META-01**: Metadata JSON manifest in ZIP documenting effects applied per variation
+- **RETRY-01**: Retry individual failed videos without re-uploading entire batch
+- **RESUME-01**: Resumable uploads for large files over unreliable connections
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Automatic mode switching mid-job | Confusing UX, two modes should be independent |
+| Pause/resume for device processing | High complexity, low value for short ad creatives |
+| Undo cancellation | Once FFmpeg killed, partial files are cleaned up |
+| Hybrid/split processing (some files device, some server) | Over-engineered for the use case |
+| Toggle switch UX (instead of radio buttons) | Toggle implies immediate effect; radio buttons suit workflow choice applied on submit |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| INFRA-06 | TBD | Pending |
+| INFRA-07 | TBD | Pending |
+| DEVC-01 | TBD | Pending |
+| DEVC-02 | TBD | Pending |
+| DEVC-03 | TBD | Pending |
+| DEVC-04 | TBD | Pending |
+| DEVC-05 | TBD | Pending |
+| MODE-01 | TBD | Pending |
+| MODE-02 | TBD | Pending |
+| MODE-03 | TBD | Pending |
+| CANC-01 | TBD | Pending |
+| CANC-02 | TBD | Pending |
+| CANC-03 | TBD | Pending |
+| CANC-04 | TBD | Pending |
+
+**Coverage:**
+- v3.0 requirements: 14 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 14
+
+---
+*Requirements defined: 2026-02-08*
