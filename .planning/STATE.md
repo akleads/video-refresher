@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 9 of 9 (Frontend Integration) -- fourth phase of v2.0 milestone
-Plan: 2 of 4 in current phase
+Plan: 3 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 09-02-PLAN.md (Login & Upload Views)
+Last activity: 2026-02-07 -- Completed 09-03-PLAN.md (Job Tracking Views)
 
-Progress: [█████████-] 100% (18 of 18 plans complete)
+Progress: [█████████-] 100% (19 of 19 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [█████████-] 100% (18 of 18 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 2.2 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans, Phase 9: 2 of 4)
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans, Phase 9: 3 of 4)
 
 *Updated after each plan completion*
 
@@ -75,6 +75,10 @@ Recent decisions affecting current work:
 | 09-02-dom | Use createElement for all DOM (no innerHTML) | 09-02 | Prevents XSS vulnerabilities in user-facing views |
 | 09-02-inline-errors | Inline error messages (not alerts) | 09-02 | Better UX, preserves context, allows error recovery |
 | 09-02-file-warnings | File size warnings at 100MB threshold | 09-02 | Inform users about potentially slow uploads |
+| 09-03-adaptive | Adaptive polling for job detail (2s → 10s backoff) | 09-03 | Active monitoring needs faster updates, backs off to reduce load |
+| 09-03-visibility | Page Visibility API pauses polling when tab hidden | 09-03 | Battery and bandwidth efficiency for background tabs |
+| 09-03-blob | Blob URL download with 1s revocation delay | 09-03 | Clean file downloads without memory leaks |
+| 09-03-expiry | Expired jobs = createdAt + 24h < now | 09-03 | Matches server cleanup daemon threshold |
 
 ### Pending Todos
 
@@ -89,11 +93,11 @@ None yet.
 
 **Phase 8 Complete:** Download endpoint, cleanup daemon, and full job lifecycle management (creation → processing → download → expiry/eviction).
 
-**Phase 9 Progress (2 of 4):** SPA infrastructure, login, and upload views complete. Job detail and jobs list views remaining.
+**Phase 9 Progress (3 of 4):** SPA infrastructure, login/upload views, and job tracking views complete. Final plan (09-04) will integrate all views.
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 09-02-PLAN.md (Login & Upload Views)
+Stopped at: Completed 09-03-PLAN.md (Job Tracking Views)
 Resume file: None
-Next: Execute 09-03-PLAN.md (Job Detail View)
+Next: Execute 09-04-PLAN.md (Final Integration)
