@@ -1,2 +1,5 @@
 # Cloudflare Pages custom headers
-# COOP/COEP removed - no longer needed without FFmpeg.wasm SharedArrayBuffer
+# COOP/COEP required for SharedArrayBuffer (FFmpeg.wasm multi-threaded processing)
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
