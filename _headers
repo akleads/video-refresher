@@ -1,4 +1,2 @@
-/*
-  Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: require-corp
-
+# Cloudflare Pages custom headers
+# COOP/COEP removed - no longer needed without FFmpeg.wasm SharedArrayBuffer

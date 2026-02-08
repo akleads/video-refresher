@@ -4,10 +4,13 @@ import { Router } from './lib/router.js';
 import { clearToken, isAuthenticated } from './lib/api.js';
 import { renderLogin } from './views/login.js';
 import { renderUpload } from './views/upload.js';
-import { renderJobDetail } from './views/job-detail.js';
-import { renderJobList } from './views/job-list.js';
+import { renderJobDetail, cleanupJobDetail } from './views/job-detail.js';
+import { renderJobList, cleanupJobList } from './views/job-list.js';
 
 const router = new Router();
+
+// Track current view for cleanup
+let currentView = null;
 
 /**
  * Show a view and update UI state
@@ -15,6 +18,15 @@ const router = new Router();
  * @param {function} renderFn - Render function to call
  */
 function showView(viewName, renderFn) {
+  // Call cleanup for previous view
+  if (currentView === 'job-detail' && viewName !== 'job-detail') {
+    cleanupJobDetail();
+  } else if (currentView === 'jobs' && viewName !== 'jobs') {
+    cleanupJobList();
+  }
+
+  // Update current view
+  currentView = viewName;
   // Hide all views
   document.querySelectorAll('.view').forEach(view => {
     view.style.display = 'none';
