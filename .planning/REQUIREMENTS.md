@@ -56,25 +56,26 @@ Deferred to post-v3.0 milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-06 | TBD | Pending |
-| INFRA-07 | TBD | Pending |
-| DEVC-01 | TBD | Pending |
-| DEVC-02 | TBD | Pending |
-| DEVC-03 | TBD | Pending |
-| DEVC-04 | TBD | Pending |
-| DEVC-05 | TBD | Pending |
-| MODE-01 | TBD | Pending |
-| MODE-02 | TBD | Pending |
-| MODE-03 | TBD | Pending |
-| CANC-01 | TBD | Pending |
-| CANC-02 | TBD | Pending |
-| CANC-03 | TBD | Pending |
-| CANC-04 | TBD | Pending |
+| INFRA-06 | Phase 10 | Pending |
+| INFRA-07 | Phase 10 | Pending |
+| DEVC-01 | Phase 11 | Pending |
+| DEVC-02 | Phase 11 | Pending |
+| DEVC-03 | Phase 11 | Pending |
+| DEVC-04 | Phase 11 | Pending |
+| DEVC-05 | Phase 10 | Pending |
+| MODE-01 | Phase 13 | Pending |
+| MODE-02 | Phase 13 | Pending |
+| MODE-03 | Phase 10 | Pending |
+| CANC-01 | Phase 12 | Pending |
+| CANC-02 | Phase 12 | Pending |
+| CANC-03 | Phase 12 | Pending |
+| CANC-04 | Phase 12 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 14 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 14
+- Mapped to phases: 14
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-08*
+*Traceability updated: 2026-02-08*
