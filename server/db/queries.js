@@ -85,6 +85,29 @@ export function createJobQueries(db) {
 
     getNextQueuedJob: db.prepare(`
       SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1
+    `),
+
+    // Cleanup queries
+    getExpiredJobs: db.prepare(`
+      SELECT * FROM jobs
+      WHERE expires_at < datetime('now')
+        AND status IN ('completed', 'failed')
+    `),
+
+    getEvictionCandidates: db.prepare(`
+      SELECT * FROM jobs
+      WHERE status IN ('completed', 'failed')
+      ORDER BY updated_at ASC
+    `),
+
+    deleteJob: db.prepare(`
+      DELETE FROM jobs WHERE id = ?
+    `),
+
+    getStuckQueuedJobs: db.prepare(`
+      SELECT * FROM jobs
+      WHERE status = 'queued'
+        AND expires_at < datetime('now')
     `)
   };
 }
