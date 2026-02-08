@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 8 of 9 (Download, Cleanup, and Job Lifecycle) -- third phase of v2.0 milestone
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-07 -- Phase 7 complete, verified (5/5 must-haves)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-08 -- Completed 08-01-PLAN.md
 
-Progress: [=========-] 88% (14 of 16 plans complete)
+Progress: [=========] 94% (15 of 16 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [=========-] 88% (14 of 16 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 6
-- Average duration: 2.2 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans)
+- Total plans completed: 7
+- Average duration: 2.1 min
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 in progress 1/2)
 
 *Updated after each plan completion*
 
@@ -61,6 +61,9 @@ Recent decisions affecting current work:
 | 07-03-startup | Worker starts after recovery runs | 07-03 | Ensures DB ready and stuck jobs cleaned before processing |
 | 07-03-sigkill | Orphaned processes use SIGKILL, active use SIGTERM | 07-03 | Orphans have no parent for signal forwarding |
 | 07-03-progress | Overall progress as average of file progress | 07-03 | Simple calculation, meaningful UX |
+| 08-01-store | Use archiver { store: true } for ZIPs | 08-01 | STORE method prevents re-compression of H.264 |
+| 08-01-folders | Organize ZIP by source video name folders | 08-01 | Groups variations by original filename |
+| 08-01-cleanup | Best-effort upload cleanup after processing | 08-01 | Log errors, don't fail jobs on cleanup issues |
 
 ### Pending Todos
 
@@ -75,7 +78,7 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Phase 7 complete, verified (5/5 must-haves passed)
+Last session: 2026-02-08
+Stopped at: Completed 08-01-PLAN.md (Download and Cleanup)
 Resume file: None
-Next: Plan Phase 8 (Download, Cleanup, and Job Lifecycle)
+Next: Execute 08-02-PLAN.md (Cleanup Job)
