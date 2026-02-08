@@ -26,7 +26,7 @@ Phases 1-5 delivered browser-based batch video variation generator with FFmpeg.w
 
 - [x] **Phase 6: Backend Foundation** - API server, database, auth, upload, and Fly.io deployment
 - [x] **Phase 7: FFmpeg Processing Engine** - Server-side video processing with native FFmpeg
-- [ ] **Phase 8: Download, Cleanup, and Job Lifecycle** - ZIP download, storage management, expiry, and graceful shutdown
+- [x] **Phase 8: Download, Cleanup, and Job Lifecycle** - ZIP download, storage management, expiry, and graceful shutdown
 - [ ] **Phase 9: Frontend Integration** - Replace client-side FFmpeg.wasm with API client
 
 ## Phase Details
@@ -78,8 +78,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- Streaming ZIP download endpoint and upload file cleanup after processing
-- [ ] 08-02-PLAN.md -- Cleanup daemon for automatic job expiry and storage-cap eviction
+- [x] 08-01-PLAN.md -- Streaming ZIP download endpoint and upload file cleanup after processing
+- [x] 08-02-PLAN.md -- Cleanup daemon for automatic job expiry and storage-cap eviction
 
 ### Phase 9: Frontend Integration
 **Goal**: Users interact with the full application through the browser -- login, upload multiple videos, watch progress, see job history, and download results -- with all client-side FFmpeg.wasm code removed.
@@ -107,5 +107,5 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 | 1-5 | v1.0 | 8/8 | Complete | 2026-02-07 |
 | 6. Backend Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 7. FFmpeg Processing Engine | v2.0 | 3/3 | Complete | 2026-02-07 |
-| 8. Download, Cleanup, Job Lifecycle | v2.0 | 0/2 | Planned | - |
+| 8. Download, Cleanup, Job Lifecycle | v2.0 | 2/2 | Complete | 2026-02-07 |
 | 9. Frontend Integration | v2.0 | 0/TBD | Not started | - |

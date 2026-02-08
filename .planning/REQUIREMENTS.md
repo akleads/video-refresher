@@ -26,16 +26,16 @@ Requirements for server-side multi-video processing milestone. Each maps to road
 
 ### Storage
 
-- [ ] **STOR-01**: Processed videos stored on 3GB Fly Volume with 24-hour auto-expiry
-- [ ] **STOR-02**: Automatic eviction of oldest results when storage cap exceeded
-- [ ] **STOR-03**: Cleanup daemon runs periodically to enforce time and size limits
-- [ ] **STOR-04**: Upload files deleted after processing completes (not held for 24h)
+- [x] **STOR-01**: Processed videos stored on 3GB Fly Volume with 24-hour auto-expiry
+- [x] **STOR-02**: Automatic eviction of oldest results when storage cap exceeded
+- [x] **STOR-03**: Cleanup daemon runs periodically to enforce time and size limits
+- [x] **STOR-04**: Upload files deleted after processing completes (not held for 24h)
 
 ### Download
 
-- [ ] **DOWN-01**: Single streaming ZIP download with all variations organized by source video
-- [ ] **DOWN-02**: ZIP uses STORE compression (no re-compression of H.264 video)
-- [ ] **DOWN-03**: Download available until job expires (24h) or evicted
+- [x] **DOWN-01**: Single streaming ZIP download with all variations organized by source video
+- [x] **DOWN-02**: ZIP uses STORE compression (no re-compression of H.264 video)
+- [x] **DOWN-03**: Download available until job expires (24h) or evicted
 
 ### Frontend
 
@@ -86,13 +86,13 @@ Deferred to post-v2.0 milestones.
 | PROC-04 | Phase 7 | Complete |
 | PROC-05 | Phase 7 | Complete |
 | PROC-06 | Phase 7 | Complete |
-| STOR-01 | Phase 8 | Pending |
-| STOR-02 | Phase 8 | Pending |
-| STOR-03 | Phase 8 | Pending |
-| STOR-04 | Phase 8 | Pending |
-| DOWN-01 | Phase 8 | Pending |
-| DOWN-02 | Phase 8 | Pending |
-| DOWN-03 | Phase 8 | Pending |
+| STOR-01 | Phase 8 | Complete |
+| STOR-02 | Phase 8 | Complete |
+| STOR-03 | Phase 8 | Complete |
+| STOR-04 | Phase 8 | Complete |
+| DOWN-01 | Phase 8 | Complete |
+| DOWN-02 | Phase 8 | Complete |
+| DOWN-03 | Phase 8 | Complete |
 | FEND-01 | Phase 9 | Pending |
 | FEND-02 | Phase 9 | Pending |
 | FEND-03 | Phase 9 | Pending |
@@ -108,4 +108,4 @@ Deferred to post-v2.0 milestones.
 
 ---
 *Requirements defined: 2026-02-07*
-*Last updated: 2026-02-07 after Phase 7 completion*
+*Last updated: 2026-02-07 after Phase 8 completion*
