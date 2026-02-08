@@ -91,11 +91,13 @@ Plans:
   3. Progress display updates per-video status (queued, processing with percentage, complete, failed) via polling without requiring the tab to stay open
   4. Job list page shows all active, completed, and expired jobs with download buttons for completed jobs and status indicators for in-progress ones
   5. All FFmpeg.wasm code, worker files, and client-side processing logic are removed -- the frontend makes zero references to FFmpeg.wasm and loads no wasm bundles
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md -- SPA infrastructure: index.html shell, hash router, API client, utilities, styles, app entry point
+- [ ] 09-02-PLAN.md -- Login view (password auth) and upload view (drag-drop, XHR progress)
+- [ ] 09-03-PLAN.md -- Job detail view (adaptive polling, download) and job list view (history)
+- [ ] 09-04-PLAN.md -- FFmpeg.wasm cleanup, header updates, view cleanup wiring, E2E verification
 
 ## Progress
 
@@ -108,4 +110,4 @@ Phases execute in numeric order: 6 -> 7 -> 8 -> 9
 | 6. Backend Foundation | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 7. FFmpeg Processing Engine | v2.0 | 3/3 | Complete | 2026-02-07 |
 | 8. Download, Cleanup, Job Lifecycle | v2.0 | 2/2 | Complete | 2026-02-07 |
-| 9. Frontend Integration | v2.0 | 0/TBD | Not started | - |
+| 9. Frontend Integration | v2.0 | 0/4 | Not started | - |
