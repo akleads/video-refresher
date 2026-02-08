@@ -37,7 +37,10 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 
 ### Active
 
-(None — project feature-complete for current needs)
+- [ ] Toggle on upload page: "Process on device" vs "Send to server"
+- [ ] Device processing with FFmpeg.wasm in browser (multi-threaded, ZIP download)
+- [ ] COOP/COEP headers restored for SharedArrayBuffer support
+- [ ] Cancel in-progress server jobs (kill FFmpeg, clean up files)
 
 ### Out of Scope
 
@@ -59,8 +62,8 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 - HMAC bearer token auth with 24h sessions, shared password via AUTH_PASSWORD env var
 - Cleanup daemon: 24h expiry + 85% storage eviction at 5-minute intervals
 - 5,708 LOC total (3,627 server + 1,989 frontend + config)
-- All FFmpeg.wasm code removed from frontend — zero client-side processing
-- COOP/COEP headers removed (no longer needed without SharedArrayBuffer)
+- v2.0 removed all FFmpeg.wasm code — v3.0 brings it back as an option alongside server processing
+- COOP/COEP headers removed in v2.0, will be restored in v3.0 for SharedArrayBuffer
 
 ## Constraints
 
@@ -99,4 +102,4 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 | Page Visibility API for polling | Pause background polls when tab hidden — battery and bandwidth efficiency | ✓ Good |
 
 ---
-*Last updated: 2026-02-08 after v2.0 milestone*
+*Last updated: 2026-02-08 after v3.0 milestone start*
