@@ -14,6 +14,9 @@ WORKDIR /app
 COPY server/package.json server/package-lock.json ./
 RUN npm ci --production
 
+# Copy shared libraries (used by server/lib/effects.js via ../../lib/)
+COPY lib/effects-shared.js /lib/effects-shared.js
+
 # Copy server code
 COPY server/ .
 
