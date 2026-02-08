@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 9 of 9 (Frontend Integration) -- fourth phase of v2.0 milestone
-Plan: 1 of 4 in current phase
+Plan: 2 of 4 in current phase
 Status: In progress
-Last activity: 2026-02-07 -- Completed 09-01-PLAN.md (SPA Infrastructure)
+Last activity: 2026-02-07 -- Completed 09-02-PLAN.md (Login & Upload Views)
 
-Progress: [█████████-] 100% (17 of 17 plans complete)
+Progress: [█████████-] 100% (18 of 18 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [█████████-] 100% (17 of 17 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 9
+- Total plans completed: 10
 - Average duration: 2.2 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans, Phase 9: 1 of 4)
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans, Phase 9: 2 of 4)
 
 *Updated after each plan completion*
 
@@ -72,6 +72,9 @@ Recent decisions affecting current work:
 | 09-01-xhr | XHR for file uploads (not fetch) | 09-01 | Enables upload progress events via xhr.upload |
 | 09-01-auth-guard | Router auth guard redirects to login if no token | 09-01 | Protects all routes except login/empty hash |
 | 09-01-nav-toggle | Nav hidden on login, visible on auth views | 09-01 | Clean login UX, persistent nav for logged-in users |
+| 09-02-dom | Use createElement for all DOM (no innerHTML) | 09-02 | Prevents XSS vulnerabilities in user-facing views |
+| 09-02-inline-errors | Inline error messages (not alerts) | 09-02 | Better UX, preserves context, allows error recovery |
+| 09-02-file-warnings | File size warnings at 100MB threshold | 09-02 | Inform users about potentially slow uploads |
 
 ### Pending Todos
 
@@ -86,11 +89,11 @@ None yet.
 
 **Phase 8 Complete:** Download endpoint, cleanup daemon, and full job lifecycle management (creation → processing → download → expiry/eviction).
 
-**Phase 9 Progress (1 of 4):** SPA infrastructure complete - routing, API client, styling, view containers ready for view implementations.
+**Phase 9 Progress (2 of 4):** SPA infrastructure, login, and upload views complete. Job detail and jobs list views remaining.
 
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Completed 09-01-PLAN.md (SPA Infrastructure)
+Stopped at: Completed 09-02-PLAN.md (Login & Upload Views)
 Resume file: None
-Next: Execute 09-02-PLAN.md (Login & Upload Views)
+Next: Execute 09-03-PLAN.md (Job Detail View)
