@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-07)
 ## Current Position
 
 Phase: 9 of 9 (Frontend Integration) -- fourth phase of v2.0 milestone
-Plan: 0 of 4 in current phase
-Status: Ready to execute (4 plans in 3 waves, verified)
-Last activity: 2026-02-07 -- Phase 9 planned and verified
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-02-07 -- Completed 09-01-PLAN.md (SPA Infrastructure)
 
-Progress: [█████████-] 94% (16 of 17 plans complete)
+Progress: [█████████-] 100% (17 of 17 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [█████████-] 94% (16 of 17 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 8
-- Average duration: 2.1 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans)
+- Total plans completed: 9
+- Average duration: 2.2 min
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans, Phase 9: 1 of 4)
 
 *Updated after each plan completion*
 
@@ -68,6 +68,10 @@ Recent decisions affecting current work:
 | 08-02-threshold | 85% eviction threshold | 08-02 | Provides buffer before hitting 3GB volume limit |
 | 08-02-stuck | Mark stuck queued jobs failed before expiry | 08-02 | Prevents orphaned queued jobs past expiry |
 | 08-02-datadir | Pass DATA_DIR to CleanupDaemon for statfsSync | 08-02 | Volume mount point needed for accurate disk stats |
+| 09-01-api-url | API base URL by hostname (localhost:8080 or Fly.io) | 09-01 | Auto-detect dev vs production environment |
+| 09-01-xhr | XHR for file uploads (not fetch) | 09-01 | Enables upload progress events via xhr.upload |
+| 09-01-auth-guard | Router auth guard redirects to login if no token | 09-01 | Protects all routes except login/empty hash |
+| 09-01-nav-toggle | Nav hidden on login, visible on auth views | 09-01 | Clean login UX, persistent nav for logged-in users |
 
 ### Pending Todos
 
@@ -82,9 +86,11 @@ None yet.
 
 **Phase 8 Complete:** Download endpoint, cleanup daemon, and full job lifecycle management (creation → processing → download → expiry/eviction).
 
+**Phase 9 Progress (1 of 4):** SPA infrastructure complete - routing, API client, styling, view containers ready for view implementations.
+
 ## Session Continuity
 
 Last session: 2026-02-07
-Stopped at: Phase 9 planned and verified (4 plans, 3 waves)
+Stopped at: Completed 09-01-PLAN.md (SPA Infrastructure)
 Resume file: None
-Next: Execute Phase 9 (Frontend Integration)
+Next: Execute 09-02-PLAN.md (Login & Upload Views)
