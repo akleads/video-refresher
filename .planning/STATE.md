@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-07)
 
 **Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
-**Current focus:** Phase 9 - Frontend Integration
+**Current focus:** Phase 9 - Frontend Integration (COMPLETE)
 
 ## Current Position
 
 Phase: 9 of 9 (Frontend Integration) -- fourth phase of v2.0 milestone
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-02-07 -- Completed 09-03-PLAN.md (Job Tracking Views)
+Plan: 4 of 4 in current phase
+Status: Complete
+Last activity: 2026-02-08 -- Completed 09-04-PLAN.md (Final Integration)
 
-Progress: [█████████-] 100% (19 of 19 plans complete)
+Progress: [██████████] 100% (19 of 19 plans complete)
 
 ## Performance Metrics
 
@@ -24,9 +24,9 @@ Progress: [█████████-] 100% (19 of 19 plans complete)
 - Total execution time: 0.64 hours
 
 **v2.0 Velocity:**
-- Total plans completed: 11
-- Average duration: 2.2 min
-- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans, Phase 9: 3 of 4)
+- Total plans completed: 12
+- Average duration: 2.3 min
+- Phases: 6-9 (4 phases, Phase 6 done with 3 plans, Phase 7 done with 3 plans, Phase 8 done with 2 plans, Phase 9 done with 4 plans)
 
 *Updated after each plan completion*
 
@@ -79,25 +79,26 @@ Recent decisions affecting current work:
 | 09-03-visibility | Page Visibility API pauses polling when tab hidden | 09-03 | Battery and bandwidth efficiency for background tabs |
 | 09-03-blob | Blob URL download with 1s revocation delay | 09-03 | Clean file downloads without memory leaks |
 | 09-03-expiry | Expired jobs = createdAt + 24h < now | 09-03 | Matches server cleanup daemon threshold |
+| 09-04-cleanup | View cleanup on route transitions | 09-04 | Stop polling timers when leaving views |
+| 09-04-headers | COOP/COEP removed from _headers | 09-04 | No longer needed without FFmpeg.wasm SharedArrayBuffer |
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- FFmpeg filter parity: native FFmpeg 7.x may differ from FFmpeg.wasm (5-6.x). Needs testing in Phase 8 API integration.
-- Deployed FFmpeg version is 5.1.8 (Debian bookworm), not 7.x — may reduce filter parity concerns.
+None remaining. All phases complete.
 
 **Phase 7 Complete:** Processing engine, queue worker, recovery, and process management all implemented.
 
 **Phase 8 Complete:** Download endpoint, cleanup daemon, and full job lifecycle management (creation → processing → download → expiry/eviction).
 
-**Phase 9 Progress (3 of 4):** SPA infrastructure, login/upload views, and job tracking views complete. Final plan (09-04) will integrate all views.
+**Phase 9 Complete:** All 4 plans executed. SPA infrastructure, login/upload views, job tracking views, FFmpeg.wasm cleanup, and view lifecycle management all complete. Zero client-side FFmpeg references remain.
 
 ## Session Continuity
 
-Last session: 2026-02-07
-Stopped at: Completed 09-03-PLAN.md (Job Tracking Views)
+Last session: 2026-02-08
+Stopped at: Completed 09-04-PLAN.md (Final Integration)
 Resume file: None
-Next: Execute 09-04-PLAN.md (Final Integration)
+Next: /gsd:complete-milestone v2.0
