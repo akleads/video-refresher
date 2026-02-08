@@ -127,4 +127,14 @@ export async function processJob(job, db, queries, outputDir) {
       // Job is "completed" even if some files failed -- partial success
     }
   }
+
+  // 6. Clean up upload source files (best-effort)
+  for (const file of files) {
+    try {
+      fs.unlinkSync(file.upload_path);
+    } catch (err) {
+      // Log but don't fail -- upload deletion is best-effort
+      console.error(`Failed to delete upload ${file.upload_path}:`, err.message);
+    }
+  }
 }
