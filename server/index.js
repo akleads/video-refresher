@@ -9,6 +9,7 @@ import { errorHandler } from './middleware/error.js';
 import { initDatabase } from './db/index.js';
 import { createJobQueries } from './db/queries.js';
 import { JobQueueWorker } from './lib/queue.js';
+import { CleanupDaemon } from './lib/cleanup.js';
 
 const PORT = process.env.PORT || 8080;
 const DATA_DIR = process.env.DATA_DIR || './data';
@@ -43,6 +44,7 @@ const queries = createJobQueries(db);
 
 // Create queue worker
 const worker = new JobQueueWorker(db, queries, OUTPUT_DIR);
+const cleanup = new CleanupDaemon(db, queries, DATA_DIR);
 
 const app = express();
 
@@ -110,6 +112,7 @@ function recoverInterruptedJobs(db, queries) {
 async function gracefulShutdown(signal) {
   console.log(`${signal} received, shutting down gracefully...`);
   worker.stop();
+  cleanup.stop();
 
   const filesWithPid = queries.getFilesWithPid.all();
   for (const file of filesWithPid) {
@@ -159,4 +162,5 @@ app.listen(PORT, () => {
   console.log(`Database: ${DB_PATH}`);
   recoverInterruptedJobs(db, queries);
   worker.start();
+  cleanup.start();
 });
