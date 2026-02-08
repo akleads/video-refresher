@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { generateId } from '../lib/id.js';
+import archiver from 'archiver';
+import path from 'node:path';
 
 export function createJobsRouter(db, queries) {
   const router = Router();
@@ -96,6 +98,76 @@ export function createJobsRouter(db, queries) {
       totalVariations: job.total_variations,
       createdAt: job.created_at
     })));
+  });
+
+  // GET /:id/download - Download job outputs as ZIP
+  router.get('/:id/download', requireAuth, (req, res) => {
+    const job = queries.getJob.get(req.params.id);
+
+    // Check job exists and is completed
+    if (!job || job.status !== 'completed') {
+      return res.status(404).json({ error: 'Job not found or not completed' });
+    }
+
+    // Check expiry
+    const expiresAt = new Date(job.expires_at + 'Z'); // Append Z for UTC
+    if (expiresAt < new Date()) {
+      return res.status(410).json({ error: 'Job expired' });
+    }
+
+    // Get output files and job files
+    const outputFiles = queries.getOutputFiles.all(job.id);
+    if (outputFiles.length === 0) {
+      return res.status(404).json({ error: 'No output files available' });
+    }
+
+    const jobFiles = queries.getJobFiles.all(job.id);
+
+    // Build map from job_file_id to folder name
+    const folderMap = new Map();
+    for (const jf of jobFiles) {
+      const folderName = jf.original_name.replace(/\.mp4$/i, '');
+      folderMap.set(jf.id, folderName);
+    }
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="video-refresher-${job.id}.zip"`);
+
+    // Create archive with STORE compression (no re-compression)
+    const archive = archiver('zip', { store: true });
+
+    // Error handler
+    archive.on('error', (err) => {
+      console.error('Archive error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to create archive' });
+      } else {
+        res.destroy();
+      }
+    });
+
+    // Warning handler for missing files
+    archive.on('warning', (err) => {
+      if (err.code === 'ENOENT') {
+        console.warn('Archive warning (missing file):', err);
+      } else {
+        throw err;
+      }
+    });
+
+    // Pipe archive to response
+    archive.pipe(res);
+
+    // Add output files to archive
+    for (const out of outputFiles) {
+      const folderName = folderMap.get(out.job_file_id) || 'unknown';
+      const filename = path.basename(out.output_path);
+      archive.file(out.output_path, { name: `${folderName}/${filename}` });
+    }
+
+    // Finalize archive (critical - without this the stream never ends)
+    archive.finalize();
   });
 
   return router;
