@@ -12,6 +12,7 @@
     "better-sqlite3": "^12.6.0",
     "cors": "^2.8.5",
     "express": "^5.2.0",
+    "helmet": "^8.1.0",
     "multer": "^2.0.2",
     "nanoid": "^5.0.0"
   }

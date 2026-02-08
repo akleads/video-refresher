@@ -6,6 +6,7 @@ import { authRouter } from './routes/auth.js';
 import { healthRouter } from './routes/health.js';
 import { createJobsRouter } from './routes/jobs.js';
 import { errorHandler } from './middleware/error.js';
+import { securityHeaders } from './middleware/security.js';
 import { initDatabase } from './db/index.js';
 import { createJobQueries } from './db/queries.js';
 import { JobQueueWorker } from './lib/queue.js';
@@ -47,6 +48,8 @@ const worker = new JobQueueWorker(db, queries, OUTPUT_DIR);
 const cleanup = new CleanupDaemon(db, queries, DATA_DIR);
 
 const app = express();
+
+app.use(securityHeaders());
 
 // CORS configuration
 app.use(cors({
