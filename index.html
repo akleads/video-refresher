@@ -1,105 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Refresher - Online Video Processor</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Refresher</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🎬 Video Refresher</h1>
-            <p>Process your MP4 videos with subtle transformations to create refreshed versions</p>
-        </header>
+  <div id="app">
+    <!-- Nav (hidden on login page, shown on all others) -->
+    <nav id="nav" class="nav" style="display:none;">
+      <div class="nav-brand">Video Refresher</div>
+      <div class="nav-tabs">
+        <a href="#upload" class="nav-tab" data-route="upload">New Job</a>
+        <a href="#jobs" class="nav-tab" data-route="jobs">My Jobs</a>
+      </div>
+      <button id="logoutBtn" class="nav-logout">Logout</button>
+    </nav>
 
-        <main>
-            <div class="upload-section">
-                <div class="upload-area" id="uploadArea">
-                    <svg class="upload-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="17 8 12 3 7 8"></polyline>
-                        <line x1="12" y1="3" x2="12" y2="15"></line>
-                    </svg>
-                    <p class="upload-text">Click to upload or drag and drop</p>
-                    <p class="upload-subtext">MP4 files only (multiple files supported)</p>
-                    <input type="file" id="videoInput" accept="video/mp4" multiple hidden>
-                </div>
-            </div>
-
-            <div class="batch-section" id="batchSection" style="display: none;">
-                <h3>Batch Generation</h3>
-                <div class="batch-controls">
-                    <label for="variationCount">Number of variations:</label>
-                    <input type="number" id="variationCount" min="1" max="20" value="5" class="variation-input">
-                    <button id="generateBtn" class="generate-btn">Generate Variations</button>
-                    <button id="cancelBtn" class="cancel-btn" style="display: none;">Cancel</button>
-                </div>
-                <div class="batch-progress" id="batchProgress" style="display: none;">
-                    <p id="batchProgressText">Processing variation 1/5...</p>
-                </div>
-            </div>
-
-            <div class="queue-section" id="queueSection" style="display: none;">
-                <h3>Processing Queue</h3>
-                <div id="queueList"></div>
-            </div>
-
-            <div class="video-preview-section" id="previewSection" style="display: none;">
-                <div class="video-container">
-                    <h3>Currently Processing</h3>
-                    <video id="originalVideo" controls></video>
-                    <p class="video-name" id="originalName"></p>
-                    <div id="processingStatus" class="processing-status"></div>
-                </div>
-                <div class="video-container">
-                    <h3>Processed Video</h3>
-                    <video id="processedVideo" controls style="display: none;"></video>
-                </div>
-            </div>
-
-            <div class="processed-videos-section" id="processedVideosSection" style="display: none;">
-                <h3>All Processed Videos</h3>
-                <div class="download-all-container">
-                    <button id="downloadAllBtn" class="download-all-btn" onclick="downloadAllAsZip()" style="display: none;">
-                        Download All as ZIP
-                    </button>
-                    <p id="zipStatus" class="zip-status" style="display: none;"></p>
-                </div>
-                <div id="processedVideosList" class="processed-videos-list"></div>
-            </div>
-
-            <div class="progress-section" id="progressSection" style="display: none;">
-                <div class="progress-bar-container">
-                    <div class="progress-bar" id="progressBar"></div>
-                </div>
-                <p class="progress-text" id="progressText">Processing...</p>
-            </div>
-
-            <div class="info-section">
-                <details>
-                    <summary>What does this do?</summary>
-                    <div class="info-content">
-                        <p>This tool applies subtle transformations to your videos to create refreshed versions:</p>
-                        <ul>
-                            <li>Minimal rotation (0.2°)</li>
-                            <li>Slight color adjustments (brightness, contrast, saturation)</li>
-                            <li>Frame rate adjustment to 29.97 fps</li>
-                            <li>Bitrate optimization</li>
-                            <li>Metadata removal</li>
-                        </ul>
-                        <p><strong>Note:</strong> Processing happens entirely in your browser. Large files may take several minutes.</p>
-                    </div>
-                </details>
-            </div>
-        </main>
-
-        <footer>
-            <p>All processing is done locally in your browser. Your videos never leave your device.</p>
-        </footer>
-    </div>
-
-    <script type="module" src="app.js"></script>
+    <!-- View containers (only one visible at a time) -->
+    <div id="view-login" class="view"></div>
+    <div id="view-upload" class="view"></div>
+    <div id="view-jobs" class="view"></div>
+    <div id="view-job-detail" class="view"></div>
+  </div>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
-
