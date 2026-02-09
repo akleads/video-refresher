@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 11 of 13 (Device Processing Core)
-Plan: 02 of ~3
-Status: In progress
-Last activity: 2026-02-09 -- Completed 11-02-PLAN.md (Worker Pool Management)
+Plan: 03 of 3
+Status: Phase complete
+Last activity: 2026-02-09 -- Completed 11-03-PLAN.md (Device Progress View + SPA Routing)
 
-Progress: [##############------] 89% (24/~27 plans, v3.0 in progress)
+Progress: [###############-----] 93% (25/~27 plans, v3.0 in progress)
 
 ## Performance Metrics
 
@@ -56,6 +56,11 @@ Full decision log in PROJECT.md Key Decisions table (22 decisions, all marked Go
 - defensive-copying: Fresh Uint8Array copy per job prevents ArrayBuffer neutering across concurrent workers
 - partial-cancellation: Cancellation returns completed results for incremental download
 
+**Phase 11 (Plan 03):**
+- module-level-file-passing: setDeviceProcessingData() stores File objects in module state (can't serialize to URLs)
+- beforeunload-lifecycle: Handler attached during processing, removed when done/cancelled
+- partial-download: Cancel button produces ZIP of completed variations
+
 ### Pending Todos
 
 None.
@@ -67,6 +72,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 11-02-PLAN.md (Worker Pool Management)
+Stopped at: Completed 11-03-PLAN.md (Device Progress View + SPA Routing) - Phase 11 complete
 Resume file: None
-Next: Plan 11-03 (Device Progress View)
+Next: Phase 12 (Server Processing UX Enhancement)
