@@ -534,6 +534,43 @@ body {
   border-left-color: #dc3545;
 }
 
+/* Device processing view */
+.device-badge {
+  display: inline-block;
+  background: #28a745;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.device-progress-section {
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+}
+
+.variation-status {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.results-summary {
+  background: #e7f3ff;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.results-summary h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
   .nav {

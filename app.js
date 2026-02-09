@@ -6,6 +6,7 @@ import { renderLogin } from './views/login.js';
 import { renderUpload } from './views/upload.js';
 import { renderJobDetail, cleanupJobDetail } from './views/job-detail.js';
 import { renderJobList, cleanupJobList } from './views/job-list.js';
+import { renderDeviceProgress, cleanupDeviceProgress } from './views/device-progress.js';
 
 const router = new Router();
 
@@ -23,6 +24,8 @@ function showView(viewName, renderFn) {
     cleanupJobDetail();
   } else if (currentView === 'jobs' && viewName !== 'jobs') {
     cleanupJobList();
+  } else if (currentView === 'device-progress' && viewName !== 'device-progress') {
+    cleanupDeviceProgress();
   }
 
   // Update current view
@@ -67,6 +70,7 @@ router.add('login', (params) => showView('login', renderLogin)(params));
 router.add('upload', (params) => showView('upload', renderUpload)(params));
 router.add('jobs', (params) => showView('jobs', renderJobList)(params));
 router.add('job/:id', (params) => showView('job-detail', () => renderJobDetail(params.id))(params));
+router.add('device-progress', (params) => showView('device-progress', renderDeviceProgress)(params));
 
 // Wire up logout button
 document.addEventListener('DOMContentLoaded', () => {
