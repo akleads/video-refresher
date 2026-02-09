@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 11 of 13 (Device Processing Core)
-Plan: 01 of ~3
+Plan: 02 of ~3
 Status: In progress
-Last activity: 2026-02-09 -- Completed 11-01-PLAN.md (Device Processing Foundation)
+Last activity: 2026-02-09 -- Completed 11-02-PLAN.md (Worker Pool Management)
 
-Progress: [#############-------] 85% (23/~27 plans, v3.0 in progress)
+Progress: [##############------] 89% (24/~27 plans, v3.0 in progress)
 
 ## Performance Metrics
 
@@ -27,8 +27,8 @@ Progress: [#############-------] 85% (23/~27 plans, v3.0 in progress)
 - Average duration: 2.3 min
 
 **v3.0 Velocity (in progress):**
-- Total plans completed: 3
-- Average duration: 4.2 min
+- Total plans completed: 4
+- Average duration: 3.6 min
 
 ## Accumulated Context
 
@@ -50,6 +50,12 @@ Full decision log in PROJECT.md Key Decisions table (22 decisions, all marked Go
 - progress-throttling: Throttle progress updates at 2% increments to prevent postMessage flooding
 - buffer-copy-pattern: Create new Uint8Array before writeFile to prevent ArrayBuffer neutering
 
+**Phase 11 (Plan 02):**
+- fixed-worker-count: 2 dedicated workers (not dynamic scaling) for predictable performance on typical devices
+- retry-once-skip: Retry-once-then-skip failure handling prevents batch abortion while maximizing successful variations
+- defensive-copying: Fresh Uint8Array copy per job prevents ArrayBuffer neutering across concurrent workers
+- partial-cancellation: Cancellation returns completed results for incremental download
+
 ### Pending Todos
 
 None.
@@ -61,6 +67,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 11-01-PLAN.md (Device Processing Foundation)
+Stopped at: Completed 11-02-PLAN.md (Worker Pool Management)
 Resume file: None
-Next: Plan 11-02 (Worker Pool Management)
+Next: Plan 11-03 (Device Progress View)
