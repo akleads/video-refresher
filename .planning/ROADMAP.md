@@ -59,13 +59,14 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can process a video on-device and FFmpeg.wasm runs in a Web Worker with multi-threaded support (no main thread blocking)
   2. Per-variation progress is displayed during device processing (user sees which variation is being processed and approximate completion)
-  3. Completed variations are bundled into a ZIP file that downloads automatically, generated with JSZip streaming mode
+  3. Completed variations are bundled into a ZIP file for download, generated with client-zip streaming
   4. No network requests are made to the server API during device processing -- the entire flow is local
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
+- [ ] 11-01-PLAN.md -- Install deps + FFmpeg Web Worker + ZIP generator module
+- [ ] 11-02-PLAN.md -- Worker pool manager + progress tracker
+- [ ] 11-03-PLAN.md -- Device progress view + SPA routing + verification
 
 ### Phase 12: Server Job Cancellation
 **Goal**: Users can cancel in-progress server jobs, with the server gracefully killing FFmpeg and cleaning up partial files
@@ -109,6 +110,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. Download, Cleanup, Job Lifecycle | v2.0 | 2/2 | Complete | 2026-02-07 |
 | 9. Frontend Integration | v2.0 | 4/4 | Complete | 2026-02-08 |
 | 10. Foundation & Abstraction | v3.0 | 2/2 | Complete | 2026-02-08 |
-| 11. Device Processing Core | v3.0 | 0/TBD | Not started | - |
+| 11. Device Processing Core | v3.0 | 0/3 | Not started | - |
 | 12. Server Job Cancellation | v3.0 | 0/TBD | Not started | - |
 | 13. Upload View Integration | v3.0 | 0/TBD | Not started | - |
