@@ -12,9 +12,19 @@
   "author": "",
   "license": "ISC",
   "description": "Browser-based video processing tool using ffmpeg.wasm",
-  "keywords": ["video", "ffmpeg", "webapp", "cloudflare"],
+  "keywords": [
+    "video",
+    "ffmpeg",
+    "webapp",
+    "cloudflare"
+  ],
   "repository": {
     "type": "git",
     "url": ""
+  },
+  "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "client-zip": "^2.5.0"
   }
 }
