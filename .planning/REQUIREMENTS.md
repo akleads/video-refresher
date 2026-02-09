@@ -58,10 +58,10 @@ Deferred to post-v3.0 milestones.
 |-------------|-------|--------|
 | INFRA-06 | Phase 10 | Complete |
 | INFRA-07 | Phase 10 | Complete |
-| DEVC-01 | Phase 11 | Pending |
-| DEVC-02 | Phase 11 | Pending |
-| DEVC-03 | Phase 11 | Pending |
-| DEVC-04 | Phase 11 | Pending |
+| DEVC-01 | Phase 11 | Complete |
+| DEVC-02 | Phase 11 | Complete |
+| DEVC-03 | Phase 11 | Complete |
+| DEVC-04 | Phase 11 | Complete |
 | DEVC-05 | Phase 10 | Complete |
 | MODE-01 | Phase 13 | Pending |
 | MODE-02 | Phase 13 | Pending |

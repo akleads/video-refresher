@@ -31,7 +31,7 @@ Phases 6-9 delivered server-side video processing on Fly.io with multi-video bat
 **Milestone Goal:** Give users a choice -- process on device (instant, no server) or send to server (faster, fire-and-forget) -- plus the ability to cancel in-progress server jobs.
 
 - [x] **Phase 10: Foundation & Abstraction** - Cross-origin headers, shared effects library, capability detection
-- [ ] **Phase 11: Device Processing Core** - FFmpeg.wasm in Web Worker with ZIP download and progress
+- [x] **Phase 11: Device Processing Core** - FFmpeg.wasm in Web Worker with ZIP download and progress
 - [ ] **Phase 12: Server Job Cancellation** - Cancel endpoint, graceful FFmpeg kill, cancelled status
 - [ ] **Phase 13: Upload View Integration** - Mode toggle UI, localStorage persistence, mode-aware submit
 
@@ -110,6 +110,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 8. Download, Cleanup, Job Lifecycle | v2.0 | 2/2 | Complete | 2026-02-07 |
 | 9. Frontend Integration | v2.0 | 4/4 | Complete | 2026-02-08 |
 | 10. Foundation & Abstraction | v3.0 | 2/2 | Complete | 2026-02-08 |
-| 11. Device Processing Core | v3.0 | 0/3 | Not started | - |
+| 11. Device Processing Core | v3.0 | 3/3 | Complete | 2026-02-09 |
 | 12. Server Job Cancellation | v3.0 | 0/TBD | Not started | - |
 | 13. Upload View Integration | v3.0 | 0/TBD | Not started | - |
