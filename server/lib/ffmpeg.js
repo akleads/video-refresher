@@ -73,7 +73,7 @@ export function spawnFFmpeg(inputPath, outputPath, filterString, onProgress, dur
     outputPath
   ];
 
-  const ffmpegChild = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  const ffmpegChild = spawn('ffmpeg', args, { stdio: ['pipe', 'pipe', 'pipe'] });
 
   // Parse stderr for progress
   const rl = readline.createInterface({ input: ffmpegChild.stderr });

@@ -87,16 +87,26 @@ export function createJobQueries(db) {
       SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1
     `),
 
+    // Cancel-related queries
+    cancelJob: db.prepare(`
+      UPDATE jobs SET status = 'cancelled', cancelled_at = datetime('now'), updated_at = datetime('now')
+      WHERE id = ? AND status IN ('queued', 'processing')
+    `),
+
+    isJobCancelled: db.prepare(`
+      SELECT 1 FROM jobs WHERE id = ? AND status = 'cancelled'
+    `),
+
     // Cleanup queries
     getExpiredJobs: db.prepare(`
       SELECT * FROM jobs
       WHERE expires_at < datetime('now')
-        AND status IN ('completed', 'failed')
+        AND status IN ('completed', 'failed', 'cancelled')
     `),
 
     getEvictionCandidates: db.prepare(`
       SELECT * FROM jobs
-      WHERE status IN ('completed', 'failed')
+      WHERE status IN ('completed', 'failed', 'cancelled')
       ORDER BY updated_at ASC
     `),
 
