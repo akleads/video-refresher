@@ -21,10 +21,10 @@ export const upload = multer({
     files: 10                       // max 10 files per request
   },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'video/mp4') {
+    if (['video/mp4', 'video/quicktime'].includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only MP4 files are accepted'), false);
+      cb(new Error('Only MP4 and MOV files are accepted'), false);
     }
   }
 });

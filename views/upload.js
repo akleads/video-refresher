@@ -57,7 +57,7 @@ export function renderUpload(params) {
 
   // Instructions
   const instructions = document.createElement('p');
-  instructions.textContent = 'Upload one or more MP4 files to create variations.';
+  instructions.textContent = 'Upload one or more MP4 or MOV files to create variations.';
   // TODO: migrate to CSS class
   instructions.style.cssText = 'color: var(--color-text-secondary); margin-bottom: var(--spacing-xl);';
   wrapper.appendChild(instructions);
@@ -65,7 +65,7 @@ export function renderUpload(params) {
   // Hidden file input
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
-  fileInput.accept = 'video/mp4';
+  fileInput.accept = 'video/mp4,.mov,video/quicktime';
   fileInput.multiple = true;
   fileInput.style.display = 'none';
   wrapper.appendChild(fileInput);
@@ -163,7 +163,7 @@ export function renderUpload(params) {
   dropZone.appendChild(dropIcon);
 
   const dropText = document.createElement('p');
-  dropText.textContent = 'Click to select files or drag and drop MP4 videos here';
+  dropText.textContent = 'Click to select files or drag and drop videos here';
   // TODO: migrate to CSS class
   dropText.style.cssText = 'margin: var(--spacing-base) 0 0; font-size: var(--font-size-md); color: var(--color-text-secondary);';
   dropZone.appendChild(dropText);
@@ -371,28 +371,28 @@ export function renderUpload(params) {
  * Add files to selection
  */
 function addFiles(files, fileListContainer, warningDiv, submitBtn) {
-  const mp4Files = [];
-  const nonMp4Files = [];
+  const validFiles = [];
+  const rejectedFiles = [];
   const largeFiles = [];
 
   files.forEach(file => {
-    if (file.type === 'video/mp4' || file.name.toLowerCase().endsWith('.mp4')) {
-      mp4Files.push(file);
+    if (file.type === 'video/mp4' || file.type === 'video/quicktime' || file.name.toLowerCase().endsWith('.mp4') || file.name.toLowerCase().endsWith('.mov')) {
+      validFiles.push(file);
       if (file.size > 100 * 1024 * 1024) { // >100MB
         largeFiles.push(file);
       }
     } else {
-      nonMp4Files.push(file);
+      rejectedFiles.push(file);
     }
   });
 
-  // Add MP4 files to selection
-  selectedFiles = selectedFiles.concat(mp4Files);
+  // Add valid files to selection
+  selectedFiles = selectedFiles.concat(validFiles);
 
   // Show warnings if needed
   const warnings = [];
-  if (nonMp4Files.length > 0) {
-    warnings.push(`${nonMp4Files.length} non-MP4 file(s) skipped. Only MP4 videos are accepted.`);
+  if (rejectedFiles.length > 0) {
+    warnings.push(`${rejectedFiles.length} unsupported file(s) skipped. Only MP4 and MOV videos are accepted.`);
   }
   if (largeFiles.length > 0) {
     warnings.push(`${largeFiles.length} file(s) larger than 100MB. Upload may take some time.`);
