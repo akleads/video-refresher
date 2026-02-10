@@ -1,6 +1,5 @@
 # Cloudflare Pages custom headers
 # COOP/COEP required for SharedArrayBuffer (FFmpeg.wasm multi-threaded processing)
-# credentialless allows cross-origin Workers/imports without CORP headers (require-corp breaks blob URL Workers)
 /*
   Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Embedder-Policy: require-corp
