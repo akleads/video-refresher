@@ -6,6 +6,7 @@
 import { WorkerPool } from '../lib/device-processing/worker-pool.js';
 import { generateZip, triggerDownload } from '../lib/device-processing/zip-generator.js';
 import { generateUniqueEffects } from '../lib/effects-shared.js';
+import { uploadDeviceResults } from '../lib/api.js';
 
 // Module state
 let workerPool = null;
@@ -174,6 +175,56 @@ export async function renderDeviceProgress() {
 
   wrapper.appendChild(resultsSection);
 
+  // Upload progress section (initially hidden)
+  const uploadSection = document.createElement('div');
+  uploadSection.className = 'upload-progress-section';
+  // TODO: migrate to CSS class
+  uploadSection.style.cssText = 'background: var(--color-bg-card); padding: var(--spacing-xl); border-radius: var(--radius-lg); margin-bottom: var(--spacing-xl); display: none;';
+
+  const uploadLabel = document.createElement('div');
+  uploadLabel.textContent = 'Uploading to server...';
+  // TODO: migrate to CSS class
+  uploadLabel.style.cssText = 'font-weight: var(--font-weight-semibold); margin-bottom: var(--spacing-sm); color: var(--color-text-secondary);';
+  uploadSection.appendChild(uploadLabel);
+
+  const uploadBarTrack = document.createElement('div');
+  // TODO: migrate to CSS class
+  uploadBarTrack.style.cssText = 'width: 100%; height: 24px; background: var(--color-gray-700); border-radius: var(--radius-xl); overflow: hidden; margin-bottom: var(--spacing-sm);';
+
+  const uploadBarFill = document.createElement('div');
+  // TODO: migrate to CSS class
+  uploadBarFill.style.cssText = 'height: 100%; background: var(--color-accent); width: 0%; transition: width 0.3s;';
+  uploadBarTrack.appendChild(uploadBarFill);
+  uploadSection.appendChild(uploadBarTrack);
+
+  const uploadText = document.createElement('div');
+  uploadText.textContent = '0%';
+  // TODO: migrate to CSS class
+  uploadText.style.cssText = 'color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-bottom: var(--spacing-sm);';
+  uploadSection.appendChild(uploadText);
+
+  const uploadStatus = document.createElement('div');
+  uploadStatus.textContent = '';
+  // TODO: migrate to CSS class
+  uploadStatus.style.cssText = 'font-weight: var(--font-weight-medium); color: var(--color-text-primary);';
+  uploadSection.appendChild(uploadStatus);
+
+  wrapper.appendChild(uploadSection);
+
+  // Retry upload button (initially hidden, added to button section)
+  const retryBtn = document.createElement('button');
+  retryBtn.textContent = 'Retry Upload';
+  retryBtn.className = 'btn btn-secondary';
+  retryBtn.style.display = 'none';
+  buttonSection.appendChild(retryBtn);
+
+  // View in History link (initially hidden, added to button section)
+  const viewHistoryLink = document.createElement('a');
+  viewHistoryLink.textContent = 'View in History';
+  viewHistoryLink.className = 'btn btn-primary';
+  viewHistoryLink.style.display = 'none';
+  buttonSection.appendChild(viewHistoryLink);
+
   // Start new batch link (initially hidden)
   const newBatchLink = document.createElement('a');
   newBatchLink.href = '#upload';
@@ -186,6 +237,17 @@ export async function renderDeviceProgress() {
   container.appendChild(wrapper);
 
   // Start processing
+  const uploadElements = {
+    uploadSection,
+    uploadBarFill,
+    uploadText,
+    uploadStatus,
+    retryBtn,
+    viewHistoryLink,
+    newBatchLink,
+    statusText
+  };
+
   await startProcessing(
     files,
     variationCount,
@@ -196,7 +258,8 @@ export async function renderDeviceProgress() {
     downloadBtn,
     resultsSection,
     resultsText,
-    newBatchLink
+    newBatchLink,
+    uploadElements
   );
 }
 
@@ -213,7 +276,8 @@ async function startProcessing(
   downloadBtn,
   resultsSection,
   resultsText,
-  newBatchLink
+  newBatchLink,
+  uploadElements
 ) {
   allResults = [];
   let cancelled = false;
@@ -395,6 +459,77 @@ async function startProcessing(
       downloadBtn.textContent = 'Download Failed - Retry';
     }
   };
+
+  // Upload results to server if we have any
+  if (allResults.length > 0) {
+    uploadElements.uploadSection.style.display = 'block';
+    uploadElements.uploadStatus.textContent = 'Uploading results to server...';
+
+    // Wire retry button
+    uploadElements.retryBtn.onclick = () => {
+      uploadElements.retryBtn.style.display = 'none';
+      uploadElements.uploadBarFill.style.width = '0%';
+      uploadElements.uploadText.textContent = '0%';
+      uploadElements.uploadStatus.textContent = 'Uploading results to server...';
+      uploadElements.uploadStatus.style.color = 'var(--color-text-primary)';
+      uploadResultsToServer(allResults, files, variationCount, uploadElements);
+    };
+
+    uploadResultsToServer(allResults, files, variationCount, uploadElements);
+  }
+}
+
+/**
+ * Upload device processing results to the server
+ * @param {Array} results - Array of {name, blob} objects
+ * @param {Array<File>} files - Original source files
+ * @param {number} variationCount - Number of variations per file
+ * @param {object} uploadElements - UI element references
+ */
+async function uploadResultsToServer(results, files, variationCount, uploadElements) {
+  const { uploadBarFill, uploadText, uploadStatus, retryBtn, viewHistoryLink, statusText } = uploadElements;
+
+  try {
+    // Build FormData
+    const formData = new FormData();
+
+    // sourceFiles metadata
+    const sourceFilesArray = Array.from(files).map(file => ({
+      name: file.name,
+      variationCount: variationCount
+    }));
+    formData.append('sourceFiles', JSON.stringify(sourceFilesArray));
+
+    // Append each result blob
+    for (const result of results) {
+      formData.append('results', result.blob, result.name);
+    }
+
+    // Upload with progress tracking
+    const response = await uploadDeviceResults(formData, (percentComplete) => {
+      uploadBarFill.style.width = `${percentComplete}%`;
+      uploadText.textContent = `${Math.round(percentComplete)}%`;
+    });
+
+    // Success
+    uploadStatus.textContent = 'Uploaded successfully!';
+    uploadStatus.style.color = 'var(--color-success-text)';
+    statusText.textContent = 'Processing complete! Results saved to server.';
+    statusText.style.color = 'var(--color-success-text)';
+    retryBtn.style.display = 'none';
+
+    // Show "View in History" link
+    viewHistoryLink.href = `#job/${response.jobId}`;
+    viewHistoryLink.style.display = 'inline-block';
+
+  } catch (error) {
+    console.error('Upload to server failed:', error);
+
+    uploadStatus.textContent = `Upload failed: ${error.message}`;
+    uploadStatus.style.color = 'var(--color-error-text)';
+    retryBtn.style.display = 'inline-block';
+    statusText.textContent = 'Processing complete! Upload to server failed.';
+  }
 }
 
 /**
