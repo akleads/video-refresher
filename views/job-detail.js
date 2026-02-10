@@ -86,6 +86,10 @@ export function renderJobDetail(jobId) {
   downloadSection.id = 'download-section';
   downloadSection.style.display = 'none';
 
+  const cancelSection = document.createElement('div');
+  cancelSection.id = 'cancel-section';
+  cancelSection.style.display = 'none';
+
   const errorSection = document.createElement('div');
   errorSection.id = 'error-section';
   errorSection.style.display = 'none';
@@ -96,6 +100,7 @@ export function renderJobDetail(jobId) {
   container.appendChild(progressSection);
   container.appendChild(summarySection);
   container.appendChild(downloadSection);
+  container.appendChild(cancelSection);
   container.appendChild(errorSection);
 
   // Fetch immediately and start polling
@@ -112,7 +117,7 @@ async function fetchAndUpdateJob() {
     updateJobDetailUI(data);
 
     // Decide if we should keep polling
-    if (data.status === 'completed' || data.status === 'failed') {
+    if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
       stopPolling();
     } else {
       // Job still active, schedule next poll with backoff
@@ -174,17 +179,35 @@ function stopPolling() {
 function updateJobDetailUI(data) {
   // Update status badge
   const statusBadge = document.getElementById('status-badge');
-  statusBadge.textContent = data.status;
   statusBadge.className = 'badge';
 
   if (data.status === 'queued') {
     statusBadge.classList.add('badge-gray');
+    statusBadge.textContent = 'Queued';
   } else if (data.status === 'processing') {
     statusBadge.classList.add('badge-blue');
+    statusBadge.textContent = 'Processing';
   } else if (data.status === 'completed') {
     statusBadge.classList.add('badge-green');
+    statusBadge.textContent = 'Completed';
   } else if (data.status === 'failed') {
     statusBadge.classList.add('badge-red');
+    statusBadge.textContent = 'Failed';
+  } else if (data.status === 'cancelled') {
+    statusBadge.classList.add('badge-gray');
+    // Show completion count for cancelled jobs
+    if (data.files && data.variationsPerFile) {
+      const completedCount = data.files.reduce((sum, file) => {
+        if (file.output && file.output.length > 0) {
+          return sum + file.output.length;
+        }
+        return sum;
+      }, 0);
+      const totalCount = data.files.length * data.variationsPerFile;
+      statusBadge.textContent = `Cancelled (${completedCount}/${totalCount})`;
+    } else {
+      statusBadge.textContent = 'Cancelled';
+    }
   }
 
   // Update progress bar (only for processing)
@@ -221,9 +244,11 @@ function updateJobDetailUI(data) {
     }
   }
 
-  // Update download section (only for completed)
+  // Update download section (for completed or cancelled with completed variations)
   const downloadSection = document.getElementById('download-section');
-  if (data.status === 'completed') {
+  const hasCompletedVariations = data.files && data.files.some(f => f.output && f.output.length > 0);
+
+  if (data.status === 'completed' || (data.status === 'cancelled' && hasCompletedVariations)) {
     downloadSection.textContent = '';
     downloadSection.style.display = 'block';
 
@@ -247,10 +272,34 @@ function updateJobDetailUI(data) {
       expiryInfo.textContent = `Expires in ${timeLeft}`;
     }
 
+    if (data.status === 'cancelled') {
+      const partialNote = document.createElement('p');
+      partialNote.className = 'cancelled-info';
+      partialNote.textContent = 'Partial results available';
+      downloadSection.appendChild(partialNote);
+    }
+
     downloadSection.appendChild(downloadBtn);
     downloadSection.appendChild(expiryInfo);
   } else {
     downloadSection.style.display = 'none';
+  }
+
+  // Update cancel section (show for processing or queued)
+  const cancelSection = document.getElementById('cancel-section');
+  if (data.status === 'processing' || data.status === 'queued') {
+    cancelSection.textContent = '';
+    cancelSection.style.display = 'block';
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'btn btn-danger';
+    cancelBtn.textContent = 'Cancel Job';
+    cancelBtn.id = 'cancel-btn';
+    cancelBtn.addEventListener('click', () => handleCancel());
+
+    cancelSection.appendChild(cancelBtn);
+  } else {
+    cancelSection.style.display = 'none';
   }
 
   // Update error section (only for failed)
@@ -260,6 +309,43 @@ function updateJobDetailUI(data) {
     errorSection.style.display = 'block';
   } else {
     errorSection.style.display = 'none';
+  }
+}
+
+/**
+ * Handle cancel button click
+ */
+async function handleCancel() {
+  // Confirmation dialog
+  const confirmed = confirm('Are you sure you want to cancel this job? Any in-progress variations will be stopped.');
+  if (!confirmed) {
+    return;
+  }
+
+  const cancelBtn = document.getElementById('cancel-btn');
+  const originalText = cancelBtn.textContent;
+
+  try {
+    // Update button to "Cancelling..." and disable
+    cancelBtn.textContent = 'Cancelling...';
+    cancelBtn.disabled = true;
+    cancelBtn.classList.add('btn-disabled');
+
+    // Send cancel request
+    await apiCall(`/api/jobs/${currentJobId}/cancel`, {
+      method: 'POST'
+    });
+
+    // Fetch updated job status immediately
+    fetchAndUpdateJob();
+  } catch (err) {
+    console.error('Cancel failed:', err);
+    alert(`Failed to cancel job: ${err.message}`);
+
+    // Re-enable button on error for retry
+    cancelBtn.textContent = originalText;
+    cancelBtn.disabled = false;
+    cancelBtn.classList.remove('btn-disabled');
   }
 }
 
