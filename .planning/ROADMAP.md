@@ -33,7 +33,7 @@ Phases 6-9 delivered server-side video processing on Fly.io with multi-video bat
 - [x] **Phase 10: Foundation & Abstraction** - Cross-origin headers, shared effects library, capability detection
 - [x] **Phase 11: Device Processing Core** - FFmpeg.wasm in Web Worker with ZIP download and progress
 - [x] **Phase 12: Server Job Cancellation** - Cancel endpoint, graceful FFmpeg kill, cancelled status
-- [ ] **Phase 13: Upload View Integration** - Mode toggle UI, localStorage persistence, mode-aware submit
+- [x] **Phase 13: Upload View Integration** - Mode toggle UI, localStorage persistence, mode-aware submit
 
 ## Phase Details
 
@@ -95,7 +95,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 13-01-PLAN.md -- Mode toggle radio buttons, localStorage persistence, mode-aware submit routing
+- [x] 13-01-PLAN.md -- Mode toggle radio buttons, localStorage persistence, mode-aware submit routing
 
 ## Progress
 
@@ -112,4 +112,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 10. Foundation & Abstraction | v3.0 | 2/2 | Complete | 2026-02-08 |
 | 11. Device Processing Core | v3.0 | 3/3 | Complete | 2026-02-09 |
 | 12. Server Job Cancellation | v3.0 | 2/2 | Complete | 2026-02-09 |
-| 13. Upload View Integration | v3.0 | 0/1 | Not started | - |
+| 13. Upload View Integration | v3.0 | 1/1 | Complete | 2026-02-09 |

@@ -9,22 +9,22 @@ Requirements for hybrid processing and job cancellation. Each maps to roadmap ph
 
 ### Infrastructure
 
-- [ ] **INFRA-06**: COOP/COEP headers restored on Cloudflare Pages for SharedArrayBuffer support
-- [ ] **INFRA-07**: Backend sends Cross-Origin-Resource-Policy: cross-origin header for COEP compatibility
+- [x] **INFRA-06**: COOP/COEP headers restored on Cloudflare Pages for SharedArrayBuffer support
+- [x] **INFRA-07**: Backend sends Cross-Origin-Resource-Policy: cross-origin header for COEP compatibility
 
 ### Device Processing
 
-- [ ] **DEVC-01**: FFmpeg.wasm 0.12.x runs in Web Worker with multi-threaded support
-- [ ] **DEVC-02**: Client-side ZIP generation with JSZip streaming mode for large batches
-- [ ] **DEVC-03**: Per-variation progress tracking during device processing
-- [ ] **DEVC-04**: Device processing bypasses server API entirely (no job tracking, local-only)
-- [ ] **DEVC-05**: Browser capability detection -- fallback to server mode if SharedArrayBuffer unavailable
+- [x] **DEVC-01**: FFmpeg.wasm 0.12.x runs in Web Worker with multi-threaded support
+- [x] **DEVC-02**: Client-side ZIP generation with JSZip streaming mode for large batches
+- [x] **DEVC-03**: Per-variation progress tracking during device processing
+- [x] **DEVC-04**: Device processing bypasses server API entirely (no job tracking, local-only)
+- [x] **DEVC-05**: Browser capability detection -- fallback to server mode if SharedArrayBuffer unavailable
 
 ### Processing Mode
 
-- [ ] **MODE-01**: Radio button toggle on upload page: "Process on device" vs "Send to server"
-- [ ] **MODE-02**: Mode preference persisted in localStorage across sessions
-- [ ] **MODE-03**: Shared effect generation library used by both device and server modes (identical variations)
+- [x] **MODE-01**: Radio button toggle on upload page: "Process on device" vs "Send to server"
+- [x] **MODE-02**: Mode preference persisted in localStorage across sessions
+- [x] **MODE-03**: Shared effect generation library used by both device and server modes (identical variations)
 
 ### Job Cancellation
 
@@ -63,8 +63,8 @@ Deferred to post-v3.0 milestones.
 | DEVC-03 | Phase 11 | Complete |
 | DEVC-04 | Phase 11 | Complete |
 | DEVC-05 | Phase 10 | Complete |
-| MODE-01 | Phase 13 | Pending |
-| MODE-02 | Phase 13 | Pending |
+| MODE-01 | Phase 13 | Complete |
+| MODE-02 | Phase 13 | Complete |
 | MODE-03 | Phase 10 | Complete |
 | CANC-01 | Phase 12 | Complete |
 | CANC-02 | Phase 12 | Complete |
@@ -78,4 +78,4 @@ Deferred to post-v3.0 milestones.
 
 ---
 *Requirements defined: 2026-02-08*
-*Traceability updated: 2026-02-09*
+*Traceability updated: 2026-02-09 — ALL v3.0 REQUIREMENTS COMPLETE*
