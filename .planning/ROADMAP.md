@@ -79,8 +79,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 16-01-PLAN.md — Server endpoint for device result upload (schema migration, POST /api/jobs/device, file storage)
-- [ ] 16-02-PLAN.md — Frontend upload flow after device processing (progress bar, retry, server persistence)
+- [x] 16-01-PLAN.md — Server endpoint for device result upload (schema migration, POST /api/jobs/device, file storage)
+- [x] 16-02-PLAN.md — Frontend upload flow after device processing (progress bar, retry, server persistence)
 
 #### Phase 17: Unified History Display
 **Goal**: Device and server jobs appear together in history with improved job card layout
@@ -140,7 +140,7 @@ Plans:
 | 13. Upload View Integration | v3.0 | 1/1 | Complete | 2026-02-09 |
 | 14. CSS Foundation | v4.0 | 1/1 | Complete | 2026-02-10 |
 | 15. Format Support | v4.0 | 1/1 | Complete | 2026-02-10 |
-| 16. Device Job History Upload | v4.0 | 0/2 | Not started | - |
+| 16. Device Job History Upload | v4.0 | 2/2 | Complete | 2026-02-10 |
 | 17. Unified History Display | v4.0 | 0/0 | Not started | - |
 | 18. Visual Polish | v4.0 | 0/0 | Not started | - |
 | 19. Enhanced Job Cards | v4.0 | 0/0 | Not started | - |
