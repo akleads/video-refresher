@@ -27,5 +27,6 @@ npm-debug.log*
 .env
 .env.local
 server/.env
+data/
 server/data/
 

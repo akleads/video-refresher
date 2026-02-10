@@ -281,10 +281,8 @@ async function startProcessing(
     const effects = generateUniqueEffects(Math.random, variationCount);
 
     // Progress update callback
-    const onProgress = (progressState) => {
-      // Update overall progress
-      const overallProgress = (completedCount + (progressState.completed / totalVariations)) / (totalVariations / files.length);
-      overallBarFill.style.width = `${Math.round(overallProgress * 100)}%`;
+    const onProgress = () => {
+      overallBarFill.style.width = `${Math.round((completedCount / totalVariations) * 100)}%`;
       overallText.textContent = `${completedCount} of ${totalVariations} variations complete`;
     };
 
