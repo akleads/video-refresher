@@ -140,13 +140,25 @@ function renderJobsList(jobs) {
       jobCard.classList.add('job-card-expired');
     }
 
-    // Header with ID and status
+    // Header with filename title and status badge
     const header = document.createElement('div');
     header.className = 'job-card-header';
 
-    const jobId = document.createElement('span');
-    jobId.className = 'job-card-id';
-    jobId.textContent = `Job ${job.id}`;
+    const title = document.createElement('span');
+    title.className = 'job-card-title';
+
+    // Build display name from fileNames
+    const fileNames = job.fileNames || [];
+    let displayName;
+    if (fileNames.length === 0) {
+      displayName = `Job ${job.id}`;
+    } else if (fileNames.length <= 3) {
+      displayName = fileNames.join(', ');
+    } else {
+      displayName = `${fileNames[0]}, ${fileNames[1]} +${fileNames.length - 2} more`;
+    }
+    title.textContent = displayName;
+    title.title = fileNames.length > 0 ? fileNames.join(', ') : `Job ${job.id}`;
 
     const statusBadge = document.createElement('span');
     statusBadge.className = 'badge';
@@ -173,25 +185,35 @@ function renderJobsList(jobs) {
       }
     }
 
-    header.appendChild(jobId);
+    header.appendChild(title);
     header.appendChild(statusBadge);
 
-    // Details
-    const details = document.createElement('div');
-    details.className = 'job-card-details';
+    // Meta row: source badge + counts on left, timestamp on right
+    const meta = document.createElement('div');
+    meta.className = 'job-card-meta';
+
+    const metaLeft = document.createElement('div');
+    metaLeft.className = 'job-card-meta-left';
+
+    const sourceBadge = document.createElement('span');
+    const source = job.source || 'server';
+    sourceBadge.className = `job-card-source job-card-source-${source}`;
+    sourceBadge.textContent = source === 'device' ? 'Device' : 'Server';
 
     const videoCount = job.totalVideos || 0;
     const totalVariations = job.totalVariations || 0;
 
-    const summary = document.createElement('p');
-    summary.textContent = `${videoCount} video${videoCount !== 1 ? 's' : ''} × ${totalVariations} variation${totalVariations !== 1 ? 's' : ''}`;
+    const countsSpan = document.createElement('span');
+    countsSpan.textContent = `${videoCount} video${videoCount !== 1 ? 's' : ''}, ${totalVariations} variation${totalVariations !== 1 ? 's' : ''}`;
 
-    const timestamp = document.createElement('p');
-    timestamp.className = 'job-card-timestamp';
-    timestamp.textContent = timeAgo(job.createdAt);
+    metaLeft.appendChild(sourceBadge);
+    metaLeft.appendChild(countsSpan);
 
-    details.appendChild(summary);
-    details.appendChild(timestamp);
+    const timestampSpan = document.createElement('span');
+    timestampSpan.textContent = timeAgo(job.createdAt);
+
+    meta.appendChild(metaLeft);
+    meta.appendChild(timestampSpan);
 
     // Actions
     const actions = document.createElement('div');
@@ -241,7 +263,7 @@ function renderJobsList(jobs) {
 
     // Assemble card
     jobCard.appendChild(header);
-    jobCard.appendChild(details);
+    jobCard.appendChild(meta);
     jobCard.appendChild(actions);
 
     container.appendChild(jobCard);

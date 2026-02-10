@@ -346,6 +346,50 @@ body {
   margin-bottom: var(--spacing-md);
 }
 
+.job-card-title {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70%;
+}
+
+.job-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.job-card-meta-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.job-card-source {
+  font-size: var(--font-size-xs);
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-full);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.job-card-source-device {
+  background: rgba(5, 150, 105, 0.15);
+  color: var(--color-green-500);
+}
+
+.job-card-source-server {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
 .job-summary {
   background: var(--color-bg-card);
   padding: var(--spacing-xl);
