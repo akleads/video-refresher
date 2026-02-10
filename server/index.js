@@ -68,7 +68,7 @@ app.locals.db = db;
 app.locals.queries = queries;
 
 // Create jobs router
-const jobsRouter = createJobsRouter(db, queries);
+const jobsRouter = createJobsRouter(db, queries, OUTPUT_DIR);
 
 // Routes
 app.use('/api/health', healthRouter);

@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
-import { upload } from '../middleware/upload.js';
+import { upload, deviceUpload } from '../middleware/upload.js';
 import { generateId } from '../lib/id.js';
 import { cancelJobProcesses } from '../lib/cancel.js';
 import archiver from 'archiver';
+import fs from 'node:fs';
 import path from 'node:path';
 
-export function createJobsRouter(db, queries) {
+export function createJobsRouter(db, queries, outputDir) {
   const router = Router();
 
   // POST / - Create job with uploads
@@ -37,6 +38,100 @@ export function createJobsRouter(db, queries) {
       totalVariations: req.files.length * variationsPerVideo,
       statusUrl: `/api/jobs/${jobId}`
     });
+  });
+
+  // POST /device - Upload pre-processed device results
+  router.post('/device', requireAuth, deviceUpload.array('results', 200), async (req, res) => {
+    try {
+      // Parse sourceFiles metadata
+      let sourceFiles;
+      try {
+        sourceFiles = JSON.parse(req.body.sourceFiles);
+      } catch {
+        return res.status(400).json({ error: 'Invalid sourceFiles JSON' });
+      }
+
+      // Validate sourceFiles
+      if (!Array.isArray(sourceFiles) || sourceFiles.length === 0) {
+        return res.status(400).json({ error: 'sourceFiles must be a non-empty array' });
+      }
+      for (const sf of sourceFiles) {
+        if (typeof sf.name !== 'string' || !sf.name) {
+          return res.status(400).json({ error: 'Each sourceFile must have a name string' });
+        }
+        if (typeof sf.variationCount !== 'number' || sf.variationCount < 1) {
+          return res.status(400).json({ error: 'Each sourceFile must have a positive variationCount number' });
+        }
+      }
+
+      // Validate uploaded files
+      if (!req.files || req.files.length === 0) {
+        return res.status(400).json({ error: 'No result files uploaded' });
+      }
+
+      const jobId = generateId();
+      const totalVideos = sourceFiles.length;
+      const totalVariations = req.files.length;
+
+      // Create job output directory
+      const jobOutputDir = path.join(outputDir, jobId);
+      fs.mkdirSync(jobOutputDir, { recursive: true });
+
+      // Build map: sourceBaseName (without extension) -> job_file_id
+      const fileIdMap = new Map();
+
+      // Use a transaction for atomicity
+      db.transaction(() => {
+        // Create the job record
+        queries.insertDeviceJob.run(jobId, totalVideos, totalVariations);
+
+        // Create job_file records for each source file
+        for (const sf of sourceFiles) {
+          const fileId = generateId();
+          queries.insertDeviceJobFile.run(fileId, jobId, sf.name, '', 0, 'completed', sf.variationCount);
+          // Map basename without extension to fileId
+          const baseName = sf.name.replace(/\.[^.]+$/, '');
+          fileIdMap.set(baseName, fileId);
+        }
+
+        // Move each uploaded file and create output_file records
+        for (const file of req.files) {
+          // originalname format: {sourceBaseName}/{sourceBaseName}_var{N}_{uuid}.mp4
+          // or just {sourceBaseName}_var{N}_{uuid}.mp4
+          const originalName = file.originalname;
+          const parts = originalName.split('/');
+          const filename = parts.length > 1 ? parts[parts.length - 1] : parts[0];
+          const sourceBaseName = parts.length > 1 ? parts[0] : filename.split('_var')[0];
+
+          // Move file from upload tmp to output dir
+          const destPath = path.join(jobOutputDir, filename);
+          fs.renameSync(file.path, destPath);
+
+          // Parse variation index from filename: _var{N}_
+          const varMatch = filename.match(/_var(\d+)_/);
+          const variationIndex = varMatch ? parseInt(varMatch[1], 10) : 0;
+
+          // Find matching job_file_id
+          const matchingFileId = fileIdMap.get(sourceBaseName);
+
+          if (matchingFileId) {
+            const outputId = generateId();
+            queries.insertOutputFile.run(outputId, jobId, matchingFileId, variationIndex, destPath, file.size);
+          }
+        }
+      })();
+
+      res.status(201).json({
+        jobId,
+        status: 'completed',
+        totalVideos,
+        totalVariations,
+        source: 'device'
+      });
+    } catch (err) {
+      console.error('Device upload error:', err);
+      res.status(500).json({ error: 'Failed to process device upload' });
+    }
   });
 
   // GET /:id - Job status

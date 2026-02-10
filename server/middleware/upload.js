@@ -28,3 +28,12 @@ export const upload = multer({
     }
   }
 });
+
+// Device upload: no MIME filter (browser blobs may have generic type), higher file limit
+export const deviceUpload = multer({
+  storage,
+  limits: {
+    fileSize: 500 * 1024 * 1024,  // 500MB per file
+    files: 200                      // up to 200 result files
+  }
+});
