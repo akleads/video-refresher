@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 12 of 13 (Server Job Cancellation)
-Plan: --
-Status: Ready to plan
-Last activity: 2026-02-09 -- Phase 11 complete (Device Processing Core) -- verified
+Plan: 01 of 1
+Status: Complete
+Last activity: 2026-02-09 -- Completed 12-01-PLAN.md
 
-Progress: [###############-----] 93% (25/~27 plans, v3.0 in progress)
+Progress: [################----] 96% (26/~27 plans, v3.0 in progress)
 
 ## Performance Metrics
 
@@ -27,8 +27,8 @@ Progress: [###############-----] 93% (25/~27 plans, v3.0 in progress)
 - Average duration: 2.3 min
 
 **v3.0 Velocity (in progress):**
-- Total plans completed: 5
-- Average duration: 3.5 min
+- Total plans completed: 6
+- Average duration: 3.2 min
 
 ## Accumulated Context
 
@@ -61,6 +61,13 @@ Full decision log in PROJECT.md Key Decisions table (22 decisions, all marked Go
 - beforeunload-lifecycle: Handler attached during processing, removed when done/cancelled
 - partial-download: Cancel button produces ZIP of completed variations
 
+**Phase 12 (Plan 01):**
+- 3-stage-escalation: stdin 'q' -> 2s -> SIGTERM -> 2s -> SIGKILL for graceful FFmpeg termination
+- cancellation-between-variations: Check for cancellation before each variation (not during) to minimize partial files
+- completion-wins-race: Job status stays 'completed' if all variations finish before kill takes effect
+- cancelled-in-cleanup: Cancelled jobs follow same 24h expiry lifecycle as completed/failed
+- process-registry: Map<jobFileId, ChildProcess> for active FFmpeg process tracking
+
 ### Pending Todos
 
 None.
@@ -72,6 +79,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Phase 11 complete -- all 3 plans executed, goal verified
+Stopped at: Completed 12-01-PLAN.md (Server Job Cancellation)
 Resume file: None
-Next: Plan Phase 12 (Server Job Cancellation)
+Next: Phase 13 (UI Hybrid Processing)
