@@ -92,10 +92,10 @@ Plans:
   2. Selecting a mode and submitting routes to the correct processing path (device-local or server API)
   3. Mode preference persists across browser sessions via localStorage -- returning users see their last choice pre-selected
   4. When SharedArrayBuffer is unavailable, "Process on device" option is disabled with an explanatory note, and server mode is auto-selected
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 13-01: TBD
+- [ ] 13-01-PLAN.md -- Mode toggle radio buttons, localStorage persistence, mode-aware submit routing
 
 ## Progress
 
@@ -112,4 +112,4 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 10. Foundation & Abstraction | v3.0 | 2/2 | Complete | 2026-02-08 |
 | 11. Device Processing Core | v3.0 | 3/3 | Complete | 2026-02-09 |
 | 12. Server Job Cancellation | v3.0 | 2/2 | Complete | 2026-02-09 |
-| 13. Upload View Integration | v3.0 | 0/TBD | Not started | - |
+| 13. Upload View Integration | v3.0 | 0/1 | Not started | - |
