@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
-**Current focus:** Phase 16 complete, phase 17 next (unified history display)
+**Current focus:** Phase 17 complete, phase 18 next (polish and UX)
 
 ## Current Position
 
-Phase: 16 of 19 (Device Job History Upload)
-Plan: 2 of 2 (complete)
+Phase: 17 of 19 (Unified History Display)
+Plan: 1 of 1 (complete)
 Status: Phase complete
-Last activity: 2026-02-10 — Completed 16-02-PLAN.md (frontend upload flow after device processing)
+Last activity: 2026-02-10 — Completed 17-01-PLAN.md (unified history display with filenames and source badges)
 
-Progress: [█████████████████░░░] 85% (17 of 20 plans complete across all phases)
+Progress: [██████████████████░░] 90% (18 of 20 plans complete across all phases)
 
 ## Performance Metrics
 
@@ -31,8 +31,8 @@ Progress: [█████████████████░░░] 85% (17
 - Average duration: 3.1 min
 
 **v4.0 Velocity:**
-- Total plans completed: 4
-- Average duration: 3.1 min
+- Total plans completed: 5
+- Average duration: 2.7 min
 
 ## Accumulated Context
 
@@ -53,6 +53,8 @@ Recent decisions affecting v4.0:
 - v4.0: outputDir passed as parameter to createJobsRouter for testability
 - v4.0: Non-blocking upload after device processing (download ZIP stays interactive)
 - v4.0: No auto-navigation after upload; user clicks "View in History" link
+- v4.0: GROUP_CONCAT join for filename aggregation in job list API
+- v4.0: Filename truncation pattern (1-3 show all, 4+ shows first two + N more)
 
 ### Pending Todos
 
@@ -65,5 +67,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 16-02-PLAN.md (Phase 16 complete)
+Stopped at: Completed 17-01-PLAN.md (Phase 17 complete)
 Resume file: None
