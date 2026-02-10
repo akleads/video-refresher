@@ -234,6 +234,26 @@ async function startProcessing(
   allResults = [];
   let cancelled = false;
 
+  // Set processing flag early (for navigation guard during init)
+  processing = true;
+  beforeUnloadHandler = (event) => {
+    if (processing) {
+      event.preventDefault();
+      return '';
+    }
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
+  // Set cancel handler early so it works during processing
+  cancelBtn.onclick = async () => {
+    if (!workerPool) return;
+    cancelled = true;
+    workerPool.cancel();
+    cancelBtn.disabled = true;
+    cancelBtn.style.opacity = '0.5';
+    statusText.textContent = 'Cancelling...';
+  };
+
   // Create worker pool
   workerPool = new WorkerPool(2);
 
@@ -255,6 +275,9 @@ async function startProcessing(
     statusText.textContent = modeText;
 
   } catch (error) {
+    processing = false;
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+
     statusText.textContent = 'FFmpeg.wasm failed to load';
     statusText.style.color = '#c33';
 
@@ -273,16 +296,6 @@ async function startProcessing(
     cancelBtn.style.display = 'none';
     return;
   }
-
-  // Set processing flag and attach beforeunload handler
-  processing = true;
-  beforeUnloadHandler = (event) => {
-    if (processing) {
-      event.preventDefault();
-      return '';
-    }
-  };
-  window.addEventListener('beforeunload', beforeUnloadHandler);
 
   // Calculate total variations
   const totalVariations = files.length * variationCount;
@@ -386,18 +399,6 @@ async function startProcessing(
   // Hide cancel button, show new batch link
   cancelBtn.style.display = 'none';
   newBatchLink.style.display = 'inline-block';
-
-  // Cancel button handler
-  cancelBtn.onclick = async () => {
-    if (!workerPool) return;
-
-    cancelled = true;
-    const partialResults = workerPool.cancel();
-
-    cancelBtn.disabled = true;
-    cancelBtn.style.opacity = '0.5';
-    statusText.textContent = 'Cancelling...';
-  };
 
   // Download button handler
   downloadBtn.onclick = async () => {
