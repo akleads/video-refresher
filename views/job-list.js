@@ -179,11 +179,11 @@ function renderJobsList(jobs) {
     const details = document.createElement('div');
     details.className = 'job-card-details';
 
-    const videoCount = job.files ? job.files.length : 0;
-    const variationCount = job.variationsPerFile || 0;
+    const videoCount = job.totalVideos || 0;
+    const totalVariations = job.totalVariations || 0;
 
     const summary = document.createElement('p');
-    summary.textContent = `${videoCount} video${videoCount !== 1 ? 's' : ''} × ${variationCount} variation${variationCount !== 1 ? 's' : ''}`;
+    summary.textContent = `${videoCount} video${videoCount !== 1 ? 's' : ''} × ${totalVariations} variation${totalVariations !== 1 ? 's' : ''}`;
 
     const timestamp = document.createElement('p');
     timestamp.className = 'job-card-timestamp';
