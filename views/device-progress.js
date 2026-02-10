@@ -41,23 +41,26 @@ export async function renderDeviceProgress() {
   // Check if we have files
   if (!files || files.length === 0) {
     const errorWrapper = document.createElement('div');
-    errorWrapper.style.cssText = 'max-width: 600px; margin: 2rem auto; padding: 2rem; text-align: center;';
+    // TODO: migrate to CSS class
+    errorWrapper.style.cssText = 'max-width: 600px; margin: var(--spacing-xl) auto; padding: var(--spacing-xl); text-align: center;';
 
     const errorTitle = document.createElement('h2');
     errorTitle.textContent = 'No files to process';
-    errorTitle.style.color = '#c33';
+    errorTitle.style.color = 'var(--color-error-text)';
     errorWrapper.appendChild(errorTitle);
 
     const errorText = document.createElement('p');
     errorText.textContent = 'No files to process. Go back to upload.';
-    errorText.style.cssText = 'margin: 1rem 0; color: #666;';
+    // TODO: migrate to CSS class
+    errorText.style.cssText = 'margin: var(--spacing-base) 0; color: var(--color-text-secondary);';
     errorWrapper.appendChild(errorText);
 
     const backLink = document.createElement('a');
     backLink.href = '#upload';
     backLink.textContent = 'Back to Upload';
     backLink.className = 'btn btn-primary';
-    backLink.style.cssText = 'display: inline-block; margin-top: 1rem;';
+    // TODO: migrate to CSS class
+    backLink.style.cssText = 'display: inline-block; margin-top: var(--spacing-base);';
     errorWrapper.appendChild(backLink);
 
     container.appendChild(errorWrapper);
@@ -66,7 +69,8 @@ export async function renderDeviceProgress() {
 
   // Main wrapper
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'max-width: 800px; margin: 2rem auto; padding: 1rem;';
+  // TODO: migrate to CSS class
+  wrapper.style.cssText = 'max-width: 800px; margin: var(--spacing-xl) auto; padding: var(--spacing-base);';
 
   // Title section
   const title = document.createElement('h1');
@@ -77,40 +81,47 @@ export async function renderDeviceProgress() {
   const deviceBadge = document.createElement('div');
   deviceBadge.className = 'device-badge';
   deviceBadge.textContent = 'ON DEVICE';
-  deviceBadge.style.cssText = 'display: inline-block; background: #28a745; color: white; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem;';
+  // TODO: migrate to CSS class
+  deviceBadge.style.cssText = 'display: inline-block; background: var(--color-green-600); color: var(--color-gray-50); padding: var(--spacing-xs) var(--spacing-md); border-radius: var(--radius-xl); font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); margin-bottom: var(--spacing-sm);';
   wrapper.appendChild(deviceBadge);
 
   // Subtitle
   const subtitle = document.createElement('p');
   subtitle.textContent = 'Processing locally in your browser -- no data sent to server';
-  subtitle.style.cssText = 'color: #666; margin-bottom: 2rem;';
+  // TODO: migrate to CSS class
+  subtitle.style.cssText = 'color: var(--color-text-secondary); margin-bottom: var(--spacing-xl);';
   wrapper.appendChild(subtitle);
 
   // Device progress section
   const progressSection = document.createElement('div');
   progressSection.className = 'device-progress-section';
-  progressSection.style.cssText = 'background: #f8f9fa; padding: 2rem; border-radius: 8px; margin-bottom: 2rem;';
+  // TODO: migrate to CSS class
+  progressSection.style.cssText = 'background: var(--color-bg-card); padding: var(--spacing-xl); border-radius: var(--radius-lg); margin-bottom: var(--spacing-xl);';
 
   // Status text
   const statusText = document.createElement('div');
   statusText.textContent = 'Initializing FFmpeg...';
-  statusText.style.cssText = 'font-weight: 500; margin-bottom: 1rem; color: #333;';
+  // TODO: migrate to CSS class
+  statusText.style.cssText = 'font-weight: var(--font-weight-medium); margin-bottom: var(--spacing-base); color: var(--color-text-primary);';
   progressSection.appendChild(statusText);
 
   // Overall progress label
   const overallLabel = document.createElement('div');
   overallLabel.textContent = 'Overall Progress';
-  overallLabel.style.cssText = 'font-weight: 600; margin-bottom: 0.5rem; color: #555;';
+  // TODO: migrate to CSS class
+  overallLabel.style.cssText = 'font-weight: var(--font-weight-semibold); margin-bottom: var(--spacing-sm); color: var(--color-text-secondary);';
   progressSection.appendChild(overallLabel);
 
   // Overall progress bar
   const overallBarTrack = document.createElement('div');
   overallBarTrack.className = 'progress-bar-track';
-  overallBarTrack.style.cssText = 'width: 100%; height: 24px; background: #e0e0e0; border-radius: 12px; overflow: hidden; margin-bottom: 0.5rem;';
+  // TODO: migrate to CSS class
+  overallBarTrack.style.cssText = 'width: 100%; height: 24px; background: var(--color-gray-700); border-radius: var(--radius-xl); overflow: hidden; margin-bottom: var(--spacing-sm);';
 
   const overallBarFill = document.createElement('div');
   overallBarFill.className = 'progress-bar-fill';
-  overallBarFill.style.cssText = 'height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%); width: 0%; transition: width 0.3s;';
+  // TODO: migrate to CSS class
+  overallBarFill.style.cssText = 'height: 100%; background: var(--color-accent); width: 0%; transition: width 0.3s;';
   overallBarTrack.appendChild(overallBarFill);
 
   progressSection.appendChild(overallBarTrack);
@@ -118,14 +129,16 @@ export async function renderDeviceProgress() {
   // Overall progress text
   const overallText = document.createElement('div');
   overallText.textContent = '0 of 0 variations complete';
-  overallText.style.cssText = 'color: #666; font-size: 0.9rem; margin-bottom: 2rem;';
+  // TODO: migrate to CSS class
+  overallText.style.cssText = 'color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-bottom: var(--spacing-xl);';
   progressSection.appendChild(overallText);
 
   wrapper.appendChild(progressSection);
 
   // Action buttons section
   const buttonSection = document.createElement('div');
-  buttonSection.style.cssText = 'display: flex; gap: 1rem; margin-bottom: 2rem;';
+  // TODO: migrate to CSS class
+  buttonSection.style.cssText = 'display: flex; gap: var(--spacing-base); margin-bottom: var(--spacing-xl);';
 
   // Cancel button
   const cancelBtn = document.createElement('button');
@@ -146,15 +159,17 @@ export async function renderDeviceProgress() {
   // Results summary section (initially hidden)
   const resultsSection = document.createElement('div');
   resultsSection.className = 'results-summary';
-  resultsSection.style.cssText = 'background: #e7f3ff; padding: 1.5rem; border-radius: 8px; margin-bottom: 1rem; display: none;';
+  // TODO: migrate to CSS class
+  resultsSection.style.cssText = 'background: var(--color-info-bg); padding: var(--spacing-lg); border-radius: var(--radius-lg); margin-bottom: var(--spacing-base); display: none;';
 
   const resultsTitle = document.createElement('h3');
   resultsTitle.textContent = 'Processing Results';
-  resultsTitle.style.marginBottom = '1rem';
+  resultsTitle.style.marginBottom = 'var(--spacing-base)';
   resultsSection.appendChild(resultsTitle);
 
   const resultsText = document.createElement('div');
-  resultsText.style.cssText = 'color: #333; font-size: 1rem;';
+  // TODO: migrate to CSS class
+  resultsText.style.cssText = 'color: var(--color-text-primary); font-size: var(--font-size-base);';
   resultsSection.appendChild(resultsText);
 
   wrapper.appendChild(resultsSection);
@@ -164,7 +179,8 @@ export async function renderDeviceProgress() {
   newBatchLink.href = '#upload';
   newBatchLink.textContent = 'Start New Batch';
   newBatchLink.className = 'btn btn-secondary';
-  newBatchLink.style.cssText = 'display: none; margin-top: 1rem;';
+  // TODO: migrate to CSS class
+  newBatchLink.style.cssText = 'display: none; margin-top: var(--spacing-base);';
   wrapper.appendChild(newBatchLink);
 
   container.appendChild(wrapper);
@@ -247,18 +263,20 @@ async function startProcessing(
     window.removeEventListener('beforeunload', beforeUnloadHandler);
 
     statusText.textContent = 'FFmpeg.wasm failed to load';
-    statusText.style.color = '#c33';
+    statusText.style.color = 'var(--color-error-text)';
 
     const errorMsg = document.createElement('p');
     errorMsg.textContent = 'FFmpeg.wasm failed to load. Try server processing instead.';
-    errorMsg.style.cssText = 'color: #c33; margin-top: 1rem;';
+    // TODO: migrate to CSS class
+    errorMsg.style.cssText = 'color: var(--color-error-text); margin-top: var(--spacing-base);';
     statusText.parentElement.appendChild(errorMsg);
 
     const backLink = document.createElement('a');
     backLink.href = '#upload';
     backLink.textContent = 'Back to Upload';
     backLink.className = 'btn btn-primary';
-    backLink.style.cssText = 'display: inline-block; margin-top: 1rem;';
+    // TODO: migrate to CSS class
+    backLink.style.cssText = 'display: inline-block; margin-top: var(--spacing-base);';
     statusText.parentElement.appendChild(backLink);
 
     cancelBtn.style.display = 'none';
@@ -321,10 +339,10 @@ async function startProcessing(
   // Update UI
   if (cancelled) {
     statusText.textContent = 'Processing cancelled';
-    statusText.style.color = '#dc3545';
+    statusText.style.color = 'var(--color-red-600)';
 
     resultsSection.style.display = 'block';
-    resultsSection.style.background = '#fff3cd';
+    resultsSection.style.background = 'var(--color-warning-bg)';
     resultsText.innerHTML = `<strong>Partial Results:</strong><br>${completedCount} of ${totalVariations} variations completed before cancellation`;
 
     if (allResults.length > 0) {
@@ -334,14 +352,14 @@ async function startProcessing(
   } else {
     if (failedCount > 0) {
       statusText.textContent = 'Processing complete with errors';
-      statusText.style.color = '#ffc107';
+      statusText.style.color = 'var(--color-yellow-500)';
 
       resultsSection.style.display = 'block';
-      resultsSection.style.background = '#fff3cd';
+      resultsSection.style.background = 'var(--color-warning-bg)';
       resultsText.innerHTML = `<strong>Completed:</strong> ${completedCount} of ${totalVariations} variations<br><strong>Failed:</strong> ${failedCount} variations`;
     } else {
       statusText.textContent = 'Processing complete!';
-      statusText.style.color = '#28a745';
+      statusText.style.color = 'var(--color-success-text)';
 
       resultsSection.style.display = 'block';
       resultsText.innerHTML = `<strong>Success!</strong> ${completedCount} of ${totalVariations} variations completed successfully`;

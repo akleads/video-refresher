@@ -47,7 +47,8 @@ export function renderUpload(params) {
 
   // Main wrapper
   const wrapper = document.createElement('div');
-  wrapper.style.cssText = 'max-width: 800px; margin: 2rem auto; padding: 1rem;';
+  // TODO: migrate to CSS class
+  wrapper.style.cssText = 'max-width: 800px; margin: var(--spacing-xl) auto; padding: var(--spacing-base);';
 
   // Page title
   const title = document.createElement('h1');
@@ -57,7 +58,8 @@ export function renderUpload(params) {
   // Instructions
   const instructions = document.createElement('p');
   instructions.textContent = 'Upload one or more MP4 files to create variations.';
-  instructions.style.cssText = 'color: #666; margin-bottom: 2rem;';
+  // TODO: migrate to CSS class
+  instructions.style.cssText = 'color: var(--color-text-secondary); margin-bottom: var(--spacing-xl);';
   wrapper.appendChild(instructions);
 
   // Hidden file input
@@ -75,11 +77,13 @@ export function renderUpload(params) {
 
   // Processing mode radio buttons
   const modeSection = document.createElement('div');
-  modeSection.style.cssText = 'display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem;';
+  // TODO: migrate to CSS class
+  modeSection.style.cssText = 'display: flex; align-items: center; gap: var(--spacing-lg); margin-bottom: var(--spacing-lg);';
 
   // Server radio wrapper
   const serverWrapper = document.createElement('div');
-  serverWrapper.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+  // TODO: migrate to CSS class
+  serverWrapper.style.cssText = 'display: flex; align-items: center; gap: var(--spacing-sm);';
 
   const serverRadio = document.createElement('input');
   serverRadio.type = 'radio';
@@ -99,7 +103,8 @@ export function renderUpload(params) {
 
   // Device radio wrapper
   const deviceWrapper = document.createElement('div');
-  deviceWrapper.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+  // TODO: migrate to CSS class
+  deviceWrapper.style.cssText = 'display: flex; align-items: center; gap: var(--spacing-sm);';
 
   const deviceRadio = document.createElement('input');
   deviceRadio.type = 'radio';
@@ -118,12 +123,13 @@ export function renderUpload(params) {
   // If device processing not supported, disable and add message
   if (!canProcessOnDevice) {
     deviceRadio.disabled = true;
-    deviceLabel.style.color = '#999';
+    deviceLabel.style.color = 'var(--color-text-muted)';
     deviceLabel.style.cursor = 'not-allowed';
 
     const unsupportedNote = document.createElement('span');
     unsupportedNote.textContent = ' (Not supported in this browser)';
-    unsupportedNote.style.cssText = 'font-size: 0.85em; color: #999; font-weight: normal;';
+    // TODO: migrate to CSS class
+    unsupportedNote.style.cssText = 'font-size: var(--font-size-sm); color: var(--color-text-muted); font-weight: normal;';
     deviceLabel.appendChild(unsupportedNote);
   }
 
@@ -148,16 +154,18 @@ export function renderUpload(params) {
   // Drag-drop zone
   const dropZone = document.createElement('div');
   dropZone.className = 'drop-zone';
-  dropZone.style.cssText = 'border: 2px dashed #ccc; border-radius: 8px; padding: 3rem; text-align: center; cursor: pointer; transition: background 0.2s;';
+  // TODO: migrate to CSS class
+  dropZone.style.cssText = 'border: 2px dashed var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--spacing-2xl); text-align: center; cursor: pointer; transition: background 0.2s;';
 
   const dropIcon = document.createElement('div');
   dropIcon.textContent = '📁';
-  dropIcon.style.fontSize = '4rem';
+  dropIcon.style.fontSize = 'var(--font-size-3xl)';
   dropZone.appendChild(dropIcon);
 
   const dropText = document.createElement('p');
   dropText.textContent = 'Click to select files or drag and drop MP4 videos here';
-  dropText.style.cssText = 'margin: 1rem 0 0; font-size: 1.1rem; color: #666;';
+  // TODO: migrate to CSS class
+  dropText.style.cssText = 'margin: var(--spacing-base) 0 0; font-size: var(--font-size-md); color: var(--color-text-secondary);';
   dropZone.appendChild(dropText);
 
   // Click to open file picker
@@ -169,8 +177,8 @@ export function renderUpload(params) {
   dropZone.addEventListener('dragenter', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragover');
-    dropZone.style.background = '#f0f8ff';
-    dropZone.style.borderColor = '#0066cc';
+    dropZone.style.background = 'var(--color-bg-hover)';
+    dropZone.style.borderColor = 'var(--color-accent)';
   });
 
   dropZone.addEventListener('dragover', (e) => {
@@ -181,7 +189,7 @@ export function renderUpload(params) {
     if (e.target === dropZone) {
       dropZone.classList.remove('dragover');
       dropZone.style.background = '';
-      dropZone.style.borderColor = '#ccc';
+      dropZone.style.borderColor = 'var(--color-border-subtle)';
     }
   });
 
@@ -189,7 +197,7 @@ export function renderUpload(params) {
     e.preventDefault();
     dropZone.classList.remove('dragover');
     dropZone.style.background = '';
-    dropZone.style.borderColor = '#ccc';
+    dropZone.style.borderColor = 'var(--color-border-subtle)';
 
     const files = Array.from(e.dataTransfer.files);
     addFiles(files, fileListContainer, warningDiv, submitBtn);
@@ -206,22 +214,25 @@ export function renderUpload(params) {
 
   // Warning div for non-MP4 files or large files
   const warningDiv = document.createElement('div');
-  warningDiv.style.cssText = 'background: #fff3cd; color: #856404; padding: 1rem; border-radius: 4px; margin-top: 1rem; display: none;';
+  // TODO: migrate to CSS class
+  warningDiv.style.cssText = 'background: var(--color-warning-bg); color: var(--color-warning-text); padding: var(--spacing-base); border-radius: var(--radius-sm); margin-top: var(--spacing-base); display: none;';
   wrapper.appendChild(warningDiv);
 
   // File list container
   const fileListContainer = document.createElement('div');
   fileListContainer.className = 'file-list';
-  fileListContainer.style.cssText = 'margin-top: 2rem;';
+  // TODO: migrate to CSS class
+  fileListContainer.style.cssText = 'margin-top: var(--spacing-xl);';
   wrapper.appendChild(fileListContainer);
 
   // Variation count input section
   const variationSection = document.createElement('div');
-  variationSection.style.cssText = 'margin-top: 2rem; display: flex; align-items: center; gap: 1rem;';
+  // TODO: migrate to CSS class
+  variationSection.style.cssText = 'margin-top: var(--spacing-xl); display: flex; align-items: center; gap: var(--spacing-base);';
 
   const variationLabel = document.createElement('label');
   variationLabel.textContent = 'Number of variations per video:';
-  variationLabel.style.fontWeight = 'bold';
+  variationLabel.style.fontWeight = 'var(--font-weight-bold)';
   variationSection.appendChild(variationLabel);
 
   const variationInput = document.createElement('input');
@@ -229,12 +240,13 @@ export function renderUpload(params) {
   variationInput.min = '1';
   variationInput.max = '20';
   variationInput.value = '5';
-  variationInput.style.cssText = 'width: 80px; padding: 0.5rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px;';
+  // TODO: migrate to CSS class
+  variationInput.style.cssText = 'width: 80px; padding: var(--spacing-sm); font-size: var(--font-size-base); border: 1px solid var(--color-input-border); border-radius: var(--radius-sm); background: var(--color-input-bg); color: var(--color-input-text);';
   variationSection.appendChild(variationInput);
 
   const variationNote = document.createElement('span');
   variationNote.textContent = '(1-20)';
-  variationNote.style.color = '#666';
+  variationNote.style.color = 'var(--color-text-secondary)';
   variationSection.appendChild(variationNote);
 
   wrapper.appendChild(variationSection);
@@ -244,7 +256,8 @@ export function renderUpload(params) {
   submitBtn.type = 'button';
   submitBtn.textContent = 'Upload and Process';
   submitBtn.disabled = true;
-  submitBtn.style.cssText = 'margin-top: 2rem; padding: 1rem 2rem; font-size: 1.1rem; background: #ccc; color: white; border: none; border-radius: 4px; cursor: not-allowed; width: 100%;';
+  // TODO: migrate to CSS class
+  submitBtn.style.cssText = 'margin-top: var(--spacing-xl); padding: var(--spacing-base) var(--spacing-xl); font-size: var(--font-size-md); background: var(--color-gray-600); color: var(--color-gray-50); border: none; border-radius: var(--radius-sm); cursor: not-allowed; width: 100%;';
 
   submitBtn.addEventListener('click', async () => {
     if (selectedFiles.length === 0) return;
@@ -259,7 +272,7 @@ export function renderUpload(params) {
 
     // Disable submit button and radio buttons
     submitBtn.disabled = true;
-    submitBtn.style.background = '#ccc';
+    submitBtn.style.background = 'var(--color-gray-600)';
     submitBtn.style.cursor = 'not-allowed';
     serverRadio.disabled = true;
     deviceRadio.disabled = true;
@@ -300,7 +313,7 @@ export function renderUpload(params) {
     } catch (err) {
       // Re-enable button and radio buttons
       submitBtn.disabled = false;
-      submitBtn.style.background = '#0066cc';
+      submitBtn.style.background = 'var(--color-accent)';
       submitBtn.style.cursor = 'pointer';
       submitBtn.textContent = 'Upload and Process';
 
@@ -310,8 +323,8 @@ export function renderUpload(params) {
 
       // Show error
       warningDiv.style.display = 'block';
-      warningDiv.style.background = '#fee';
-      warningDiv.style.color = '#c33';
+      warningDiv.style.background = 'var(--color-error-bg)';
+      warningDiv.style.color = 'var(--color-error-text)';
       warningDiv.textContent = `Upload failed: ${err.message}`;
       progressSection.style.display = 'none';
     }
@@ -321,23 +334,28 @@ export function renderUpload(params) {
 
   // Upload progress section (hidden by default)
   const progressSection = document.createElement('div');
-  progressSection.style.cssText = 'margin-top: 1rem; display: none;';
+  // TODO: migrate to CSS class
+  progressSection.style.cssText = 'margin-top: var(--spacing-base); display: none;';
 
   const progressLabel = document.createElement('div');
   progressLabel.textContent = 'Upload progress:';
-  progressLabel.style.cssText = 'margin-bottom: 0.5rem; font-weight: bold;';
+  // TODO: migrate to CSS class
+  progressLabel.style.cssText = 'margin-bottom: var(--spacing-sm); font-weight: var(--font-weight-bold);';
   progressSection.appendChild(progressLabel);
 
   const progressBarContainer = document.createElement('div');
-  progressBarContainer.style.cssText = 'width: 100%; height: 30px; background: #eee; border-radius: 4px; overflow: hidden; position: relative;';
+  // TODO: migrate to CSS class
+  progressBarContainer.style.cssText = 'width: 100%; height: 30px; background: var(--color-gray-700); border-radius: var(--radius-sm); overflow: hidden; position: relative;';
 
   const progressBar = document.createElement('div');
-  progressBar.style.cssText = 'height: 100%; background: #0066cc; width: 0%; transition: width 0.3s;';
+  // TODO: migrate to CSS class
+  progressBar.style.cssText = 'height: 100%; background: var(--color-accent); width: 0%; transition: width 0.3s;';
   progressBarContainer.appendChild(progressBar);
 
   const progressText = document.createElement('div');
   progressText.textContent = '0%';
-  progressText.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: bold; color: #333;';
+  // TODO: migrate to CSS class
+  progressText.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: var(--font-weight-bold); color: var(--color-text-primary);';
   progressBarContainer.appendChild(progressText);
 
   progressSection.appendChild(progressBarContainer);
@@ -383,8 +401,8 @@ function addFiles(files, fileListContainer, warningDiv, submitBtn) {
   if (warnings.length > 0) {
     warningDiv.textContent = warnings.join(' ');
     warningDiv.style.display = 'block';
-    warningDiv.style.background = '#fff3cd';
-    warningDiv.style.color = '#856404';
+    warningDiv.style.background = 'var(--color-warning-bg)';
+    warningDiv.style.color = 'var(--color-warning-text)';
   } else {
     warningDiv.style.display = 'none';
   }
@@ -403,14 +421,14 @@ function renderFileList(container, submitBtn) {
 
   if (selectedFiles.length === 0) {
     submitBtn.disabled = true;
-    submitBtn.style.background = '#ccc';
+    submitBtn.style.background = 'var(--color-gray-600)';
     submitBtn.style.cursor = 'not-allowed';
     return;
   }
 
   // Enable submit button
   submitBtn.disabled = false;
-  submitBtn.style.background = '#0066cc';
+  submitBtn.style.background = 'var(--color-accent)';
   submitBtn.style.cursor = 'pointer';
 
   const heading = document.createElement('h3');
@@ -418,11 +436,13 @@ function renderFileList(container, submitBtn) {
   container.appendChild(heading);
 
   const fileList = document.createElement('div');
-  fileList.style.cssText = 'border: 1px solid #ddd; border-radius: 4px; overflow: hidden;';
+  // TODO: migrate to CSS class
+  fileList.style.cssText = 'border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;';
 
   selectedFiles.forEach((file, index) => {
     const fileRow = document.createElement('div');
-    fileRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 1rem; border-bottom: 1px solid #eee;';
+    // TODO: migrate to CSS class
+    fileRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-base); border-bottom: 1px solid var(--color-border);';
     if (index === selectedFiles.length - 1) {
       fileRow.style.borderBottom = 'none';
     }
@@ -432,24 +452,26 @@ function renderFileList(container, submitBtn) {
 
     const fileName = document.createElement('div');
     fileName.textContent = file.name;
-    fileName.style.fontWeight = 'bold';
+    fileName.style.fontWeight = 'var(--font-weight-bold)';
     fileInfo.appendChild(fileName);
 
     const fileSize = document.createElement('div');
     fileSize.textContent = formatBytes(file.size);
-    fileSize.style.cssText = 'color: #666; font-size: 0.9rem; margin-top: 0.25rem;';
+    // TODO: migrate to CSS class
+    fileSize.style.cssText = 'color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--spacing-xs);';
     fileInfo.appendChild(fileSize);
 
     fileRow.appendChild(fileInfo);
 
     const removeBtn = document.createElement('button');
     removeBtn.textContent = 'Remove';
-    removeBtn.style.cssText = 'padding: 0.5rem 1rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;';
+    // TODO: migrate to CSS class
+    removeBtn.style.cssText = 'padding: var(--spacing-sm) var(--spacing-base); background: var(--color-red-600); color: var(--color-gray-50); border: none; border-radius: var(--radius-sm); cursor: pointer;';
     removeBtn.addEventListener('mouseenter', () => {
-      removeBtn.style.background = '#c82333';
+      removeBtn.style.background = 'var(--color-red-700)';
     });
     removeBtn.addEventListener('mouseleave', () => {
-      removeBtn.style.background = '#dc3545';
+      removeBtn.style.background = 'var(--color-red-600)';
     });
     removeBtn.addEventListener('click', () => {
       selectedFiles.splice(index, 1);
@@ -465,7 +487,8 @@ function renderFileList(container, submitBtn) {
   // Total size
   const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
   const totalDiv = document.createElement('div');
-  totalDiv.style.cssText = 'margin-top: 1rem; font-weight: bold; text-align: right;';
+  // TODO: migrate to CSS class
+  totalDiv.style.cssText = 'margin-top: var(--spacing-base); font-weight: var(--font-weight-bold); text-align: right;';
   totalDiv.textContent = `Total: ${selectedFiles.length} file(s), ${formatBytes(totalSize)}`;
   container.appendChild(totalDiv);
 }

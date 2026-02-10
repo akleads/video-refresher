@@ -11,7 +11,8 @@ export function renderLogin(params) {
   // Create centered login form
   const formWrapper = document.createElement('div');
   formWrapper.className = 'login-wrapper';
-  formWrapper.style.cssText = 'max-width: 400px; margin: 4rem auto; padding: 2rem; text-align: center;';
+  // TODO: migrate to CSS class
+  formWrapper.style.cssText = 'max-width: 400px; margin: var(--spacing-3xl) auto; padding: var(--spacing-xl); text-align: center;';
 
   // App title
   const title = document.createElement('h1');
@@ -21,8 +22,8 @@ export function renderLogin(params) {
   // Subtitle
   const subtitle = document.createElement('p');
   subtitle.textContent = 'Enter the shared password to continue';
-  subtitle.style.color = '#666';
-  subtitle.style.marginBottom = '2rem';
+  subtitle.style.color = 'var(--color-text-secondary)';
+  subtitle.style.marginBottom = 'var(--spacing-xl)';
   formWrapper.appendChild(subtitle);
 
   // Expired session message
@@ -30,14 +31,16 @@ export function renderLogin(params) {
     const expiredMsg = document.createElement('div');
     expiredMsg.className = 'error-message';
     expiredMsg.textContent = 'Your session has expired. Please log in again.';
-    expiredMsg.style.cssText = 'background: #fee; color: #c33; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;';
+    // TODO: migrate to CSS class
+    expiredMsg.style.cssText = 'background: var(--color-error-bg); color: var(--color-error-text); padding: var(--spacing-base); border-radius: var(--radius-sm); margin-bottom: var(--spacing-base);';
     formWrapper.appendChild(expiredMsg);
   }
 
   // Error message container (hidden by default)
   const errorDiv = document.createElement('div');
   errorDiv.className = 'error-message';
-  errorDiv.style.cssText = 'background: #fee; color: #c33; padding: 1rem; border-radius: 4px; margin-bottom: 1rem; display: none;';
+  // TODO: migrate to CSS class
+  errorDiv.style.cssText = 'background: var(--color-error-bg); color: var(--color-error-text); padding: var(--spacing-base); border-radius: var(--radius-sm); margin-bottom: var(--spacing-base); display: none;';
   formWrapper.appendChild(errorDiv);
 
   // Create form
@@ -45,14 +48,15 @@ export function renderLogin(params) {
 
   // Password input
   const inputWrapper = document.createElement('div');
-  inputWrapper.style.marginBottom = '1rem';
+  inputWrapper.style.marginBottom = 'var(--spacing-base)';
 
   const passwordInput = document.createElement('input');
   passwordInput.type = 'password';
   passwordInput.required = true;
   passwordInput.autofocus = true;
   passwordInput.placeholder = 'Password';
-  passwordInput.style.cssText = 'width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px;';
+  // TODO: migrate to CSS class
+  passwordInput.style.cssText = 'width: 100%; padding: var(--spacing-md); font-size: var(--font-size-base); border: 1px solid var(--color-input-border); border-radius: var(--radius-sm); background: var(--color-input-bg); color: var(--color-input-text);';
   inputWrapper.appendChild(passwordInput);
   form.appendChild(inputWrapper);
 
@@ -60,15 +64,16 @@ export function renderLogin(params) {
   const submitBtn = document.createElement('button');
   submitBtn.type = 'submit';
   submitBtn.textContent = 'Log In';
-  submitBtn.style.cssText = 'width: 100%; padding: 0.75rem; font-size: 1rem; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer;';
+  // TODO: migrate to CSS class
+  submitBtn.style.cssText = 'width: 100%; padding: var(--spacing-md); font-size: var(--font-size-base); background: var(--color-accent); color: var(--color-gray-50); border: none; border-radius: var(--radius-sm); cursor: pointer;';
   submitBtn.addEventListener('mouseenter', () => {
     if (!submitBtn.disabled) {
-      submitBtn.style.background = '#0052a3';
+      submitBtn.style.background = 'var(--color-accent-hover)';
     }
   });
   submitBtn.addEventListener('mouseleave', () => {
     if (!submitBtn.disabled) {
-      submitBtn.style.background = '#0066cc';
+      submitBtn.style.background = 'var(--color-accent)';
     }
   });
   form.appendChild(submitBtn);
@@ -81,7 +86,7 @@ export function renderLogin(params) {
 
     // Show loading state
     submitBtn.disabled = true;
-    submitBtn.style.background = '#ccc';
+    submitBtn.style.background = 'var(--color-gray-600)';
     submitBtn.style.cursor = 'not-allowed';
     submitBtn.textContent = 'Logging in...';
     errorDiv.style.display = 'none';
@@ -100,7 +105,7 @@ export function renderLogin(params) {
     } catch (err) {
       // Re-enable button
       submitBtn.disabled = false;
-      submitBtn.style.background = '#0066cc';
+      submitBtn.style.background = 'var(--color-accent)';
       submitBtn.style.cursor = 'pointer';
       submitBtn.textContent = 'Log In';
 

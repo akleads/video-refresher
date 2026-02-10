@@ -60,6 +60,7 @@ export function renderJobDetail(jobId) {
 
   const progressSection = document.createElement('div');
   progressSection.id = 'progress-section';
+  // TODO: migrate to CSS class
   progressSection.style.display = 'none';
 
   const progressLabel = document.createElement('div');
@@ -84,14 +85,17 @@ export function renderJobDetail(jobId) {
 
   const downloadSection = document.createElement('div');
   downloadSection.id = 'download-section';
+  // TODO: migrate to CSS class
   downloadSection.style.display = 'none';
 
   const cancelSection = document.createElement('div');
   cancelSection.id = 'cancel-section';
+  // TODO: migrate to CSS class
   cancelSection.style.display = 'none';
 
   const errorSection = document.createElement('div');
   errorSection.id = 'error-section';
+  // TODO: migrate to CSS class
   errorSection.style.display = 'none';
   errorSection.className = 'error-box';
 
