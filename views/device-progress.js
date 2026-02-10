@@ -369,7 +369,7 @@ async function startProcessing(
       downloadBtn.textContent = 'Generating ZIP...';
 
       const zipBlob = await generateZip(allResults);
-      triggerDownload(zipBlob, 'processed-videos.zip');
+      triggerDownload(zipBlob, `video-refresher-${crypto.randomUUID().slice(0, 8)}.zip`);
 
       downloadBtn.disabled = false;
       downloadBtn.textContent = 'Download ZIP';
