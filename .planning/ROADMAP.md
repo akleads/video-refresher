@@ -105,10 +105,11 @@ Plans:
   2. Upload drop zone provides clear visual feedback during drag interactions
   3. Drop zone states (idle, drag-over, processing) visually distinct
   4. Job card styling refined with better spacing and cleaner design
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 18-01: TBD
+- [ ] 18-01-PLAN.md -- Spacing scale, full-width layout, and branded login page
+- [ ] 18-02-PLAN.md -- Drop zone redesign with 3 states and job card grid refinement
 
 #### Phase 19: Enhanced Job Cards
 **Goal**: Job cards display video thumbnails and browser notifications alert users when jobs complete
