@@ -2,9 +2,39 @@
 
 import { uploadFiles } from '../lib/api.js';
 import { formatBytes } from '../lib/utils.js';
+import { supportsClientProcessing } from '../lib/capability-detection.js';
+import { setDeviceProcessingData } from './device-progress.js';
 
 // Module-level state - reset on each render
 let selectedFiles = [];
+
+// localStorage key for processing mode preference
+const STORAGE_KEY = 'video-refresher.processing-mode';
+
+/**
+ * Save processing mode preference to localStorage
+ * @param {string} mode - 'server' or 'device'
+ */
+function saveProcessingMode(mode) {
+  try {
+    localStorage.setItem(STORAGE_KEY, mode);
+  } catch (err) {
+    console.warn('[upload] Failed to save processing mode:', err);
+  }
+}
+
+/**
+ * Load processing mode preference from localStorage
+ * @returns {string} 'server' or 'device' (defaults to 'server')
+ */
+function loadProcessingMode() {
+  try {
+    return localStorage.getItem(STORAGE_KEY) || 'server';
+  } catch (err) {
+    console.warn('[upload] Failed to load processing mode:', err);
+    return 'server';
+  }
+}
 
 export function renderUpload(params) {
   // Reset state
@@ -37,6 +67,83 @@ export function renderUpload(params) {
   fileInput.multiple = true;
   fileInput.style.display = 'none';
   wrapper.appendChild(fileInput);
+
+  // Check capability and load saved preference
+  const canProcessOnDevice = supportsClientProcessing();
+  const savedMode = loadProcessingMode();
+  const effectiveMode = (savedMode === 'device' && !canProcessOnDevice) ? 'server' : savedMode;
+
+  // Processing mode radio buttons
+  const modeSection = document.createElement('div');
+  modeSection.style.cssText = 'display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1.5rem;';
+
+  // Server radio wrapper
+  const serverWrapper = document.createElement('div');
+  serverWrapper.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+
+  const serverRadio = document.createElement('input');
+  serverRadio.type = 'radio';
+  serverRadio.name = 'processing-mode';
+  serverRadio.value = 'server';
+  serverRadio.id = 'mode-server';
+  serverRadio.checked = (effectiveMode === 'server');
+  serverWrapper.appendChild(serverRadio);
+
+  const serverLabel = document.createElement('label');
+  serverLabel.htmlFor = 'mode-server';
+  serverLabel.textContent = 'Send to server';
+  serverLabel.style.cursor = 'pointer';
+  serverWrapper.appendChild(serverLabel);
+
+  modeSection.appendChild(serverWrapper);
+
+  // Device radio wrapper
+  const deviceWrapper = document.createElement('div');
+  deviceWrapper.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+
+  const deviceRadio = document.createElement('input');
+  deviceRadio.type = 'radio';
+  deviceRadio.name = 'processing-mode';
+  deviceRadio.value = 'device';
+  deviceRadio.id = 'mode-device';
+  deviceRadio.checked = (effectiveMode === 'device');
+  deviceWrapper.appendChild(deviceRadio);
+
+  const deviceLabel = document.createElement('label');
+  deviceLabel.htmlFor = 'mode-device';
+  deviceLabel.textContent = 'Process on device';
+  deviceLabel.style.cursor = 'pointer';
+  deviceWrapper.appendChild(deviceLabel);
+
+  // If device processing not supported, disable and add message
+  if (!canProcessOnDevice) {
+    deviceRadio.disabled = true;
+    deviceLabel.style.color = '#999';
+    deviceLabel.style.cursor = 'not-allowed';
+
+    const unsupportedNote = document.createElement('span');
+    unsupportedNote.textContent = ' (Not supported in this browser)';
+    unsupportedNote.style.cssText = 'font-size: 0.85em; color: #999; font-weight: normal;';
+    deviceLabel.appendChild(unsupportedNote);
+  }
+
+  modeSection.appendChild(deviceWrapper);
+
+  // Attach change listeners for localStorage persistence
+  serverRadio.addEventListener('change', () => {
+    if (serverRadio.checked) {
+      saveProcessingMode('server');
+    }
+  });
+
+  deviceRadio.addEventListener('change', () => {
+    if (deviceRadio.checked) {
+      saveProcessingMode('device');
+    }
+  });
+
+  // Insert mode section before fileInput
+  wrapper.insertBefore(modeSection, fileInput);
 
   // Drag-drop zone
   const dropZone = document.createElement('div');
@@ -147,10 +254,26 @@ export function renderUpload(params) {
     if (isNaN(variations) || variations < 1) variations = 1;
     if (variations > 20) variations = 20;
 
-    // Disable submit button
+    // Get selected processing mode
+    const selectedMode = document.querySelector('input[name="processing-mode"]:checked').value;
+
+    // Disable submit button and radio buttons
     submitBtn.disabled = true;
     submitBtn.style.background = '#ccc';
     submitBtn.style.cursor = 'not-allowed';
+    serverRadio.disabled = true;
+    deviceRadio.disabled = true;
+
+    // Branch based on selected mode
+    if (selectedMode === 'device') {
+      // Device processing path
+      submitBtn.textContent = 'Processing...';
+      setDeviceProcessingData(selectedFiles, variations);
+      window.location.hash = '#device-progress';
+      return;
+    }
+
+    // Server processing path (existing code)
     submitBtn.textContent = 'Uploading...';
 
     // Show progress section
@@ -175,11 +298,15 @@ export function renderUpload(params) {
       window.location.hash = `#job/${data.jobId}`;
 
     } catch (err) {
-      // Re-enable button
+      // Re-enable button and radio buttons
       submitBtn.disabled = false;
       submitBtn.style.background = '#0066cc';
       submitBtn.style.cursor = 'pointer';
       submitBtn.textContent = 'Upload and Process';
+
+      serverRadio.disabled = false;
+      // Only re-enable device radio if capability supported
+      deviceRadio.disabled = !canProcessOnDevice;
 
       // Show error
       warningDiv.style.display = 'block';
