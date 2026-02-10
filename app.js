@@ -6,7 +6,7 @@ import { renderLogin } from './views/login.js';
 import { renderUpload } from './views/upload.js';
 import { renderJobDetail, cleanupJobDetail } from './views/job-detail.js';
 import { renderJobList, cleanupJobList } from './views/job-list.js';
-import { renderDeviceProgress, cleanupDeviceProgress } from './views/device-progress.js';
+import { renderDeviceProgress, cleanupDeviceProgress, isDeviceProcessing } from './views/device-progress.js';
 
 const router = new Router();
 
@@ -19,6 +19,16 @@ let currentView = null;
  * @param {function} renderFn - Render function to call
  */
 function showView(viewName, renderFn) {
+  // Warn before navigating away from active device processing
+  if (currentView === 'device-progress' && viewName !== 'device-progress' && isDeviceProcessing()) {
+    const confirmed = confirm('Video is still processing on your device. Leaving will cancel the job. Continue?');
+    if (!confirmed) {
+      // Restore the hash to device-progress without triggering another route
+      history.replaceState(null, '', '#device-progress');
+      return () => {};
+    }
+  }
+
   // Call cleanup for previous view
   if (currentView === 'job-detail' && viewName !== 'job-detail') {
     cleanupJobDetail();

@@ -419,6 +419,14 @@ async function startProcessing(
 }
 
 /**
+ * Check if device processing is currently active
+ * @returns {boolean}
+ */
+export function isDeviceProcessing() {
+  return processing;
+}
+
+/**
  * Cleanup function for navigation away
  */
 export function cleanupDeviceProgress() {
