@@ -41,17 +41,17 @@ Phases 10-13 delivered hybrid device/server processing mode with upload page tog
 **Milestone Goal:** Add MOV input support, unify device/server job history, improve visual polish, and add quality-of-life features (notifications, thumbnails).
 
 #### Phase 14: CSS Foundation
-**Goal**: Establish CSS custom properties foundation for consistent styling
+**Goal**: Establish CSS custom properties foundation with new dark-mode grayscale palette
 **Depends on**: Phase 13
 **Requirements**: UI-01
 **Success Criteria** (what must be TRUE):
   1. All colors, spacing, and typography values extracted into CSS custom properties
   2. No hardcoded color/spacing values remain in component styles
-  3. Visual appearance unchanged after extraction (design-neutral refactor)
-**Plans**: TBD
+  3. New dark-mode grayscale palette with bright blue accent applied throughout (visual redesign)
+**Plans**: 1 plan
 
 Plans:
-- [ ] 14-01: TBD
+- [ ] 14-01-PLAN.md — Define CSS custom properties with dark palette, migrate styles.css and view inline styles to use variables
 
 #### Phase 15: Format Support
 **Goal**: Users can upload and process MOV files alongside MP4
@@ -137,7 +137,7 @@ Plans:
 | 11. Device Processing Core | v3.0 | 3/3 | Complete | 2026-02-09 |
 | 12. Server Job Cancellation | v3.0 | 2/2 | Complete | 2026-02-09 |
 | 13. Upload View Integration | v3.0 | 1/1 | Complete | 2026-02-09 |
-| 14. CSS Foundation | v4.0 | 0/0 | Not started | - |
+| 14. CSS Foundation | v4.0 | 0/1 | Not started | - |
 | 15. Format Support | v4.0 | 0/0 | Not started | - |
 | 16. Device Job History Upload | v4.0 | 0/0 | Not started | - |
 | 17. Unified History Display | v4.0 | 0/0 | Not started | - |
