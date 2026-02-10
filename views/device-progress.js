@@ -121,34 +121,6 @@ export async function renderDeviceProgress() {
   overallText.style.cssText = 'color: #666; font-size: 0.9rem; margin-bottom: 2rem;';
   progressSection.appendChild(overallText);
 
-  // Current variation section
-  const variationSection = document.createElement('div');
-  variationSection.className = 'variation-status';
-  variationSection.style.cssText = 'margin-top: 1.5rem;';
-
-  const variationLabel = document.createElement('div');
-  variationLabel.textContent = 'Current Variation';
-  variationLabel.style.cssText = 'font-weight: 600; margin-bottom: 0.5rem; color: #555;';
-  variationSection.appendChild(variationLabel);
-
-  const variationText = document.createElement('div');
-  variationText.textContent = 'Waiting to start...';
-  variationText.style.cssText = 'color: #666; margin-bottom: 0.5rem;';
-  variationSection.appendChild(variationText);
-
-  // Current variation progress bar
-  const variationBarTrack = document.createElement('div');
-  variationBarTrack.className = 'progress-bar-track';
-  variationBarTrack.style.cssText = 'width: 100%; height: 16px; background: #e0e0e0; border-radius: 8px; overflow: hidden;';
-
-  const variationBarFill = document.createElement('div');
-  variationBarFill.className = 'progress-bar-fill';
-  variationBarFill.style.cssText = 'height: 100%; background: #28a745; width: 0%; transition: width 0.3s;';
-  variationBarTrack.appendChild(variationBarFill);
-
-  variationSection.appendChild(variationBarTrack);
-  progressSection.appendChild(variationSection);
-
   wrapper.appendChild(progressSection);
 
   // Action buttons section
@@ -204,8 +176,6 @@ export async function renderDeviceProgress() {
     statusText,
     overallBarFill,
     overallText,
-    variationText,
-    variationBarFill,
     cancelBtn,
     downloadBtn,
     resultsSection,
@@ -223,8 +193,6 @@ async function startProcessing(
   statusText,
   overallBarFill,
   overallText,
-  variationText,
-  variationBarFill,
   cancelBtn,
   downloadBtn,
   resultsSection,
@@ -318,12 +286,6 @@ async function startProcessing(
       const overallProgress = (completedCount + (progressState.completed / totalVariations)) / (totalVariations / files.length);
       overallBarFill.style.width = `${Math.round(overallProgress * 100)}%`;
       overallText.textContent = `${completedCount} of ${totalVariations} variations complete`;
-
-      // Update current variation
-      if (progressState.currentVariation > 0) {
-        variationText.textContent = `Processing variation ${progressState.currentVariation} of ${variationCount}...`;
-        variationBarFill.style.width = `${Math.round(progressState.variationProgress * 100)}%`;
-      }
     };
 
     // Variation complete callback
