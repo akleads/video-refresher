@@ -196,6 +196,52 @@ body {
   cursor: not-allowed;
 }
 
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.875em;
+}
+
+.btn-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Badge styles */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.85em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-gray {
+  background: #e0e0e0;
+  color: #555;
+}
+
+.badge-blue {
+  background: #cfe2ff;
+  color: #084298;
+}
+
+.badge-green {
+  background: #d1e7dd;
+  color: #0f5132;
+}
+
+.badge-red {
+  background: #f8d7da;
+  color: #842029;
+}
+
+.cancelled-info {
+  color: #666;
+  font-size: 0.9em;
+  margin-top: 8px;
+}
+
 /* Upload view */
 .upload-container {
   max-width: 700px;

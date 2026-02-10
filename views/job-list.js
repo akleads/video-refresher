@@ -154,15 +154,21 @@ function renderJobsList(jobs) {
       statusBadge.classList.add('badge-gray');
       statusBadge.textContent = 'Expired';
     } else {
-      statusBadge.textContent = job.status;
       if (job.status === 'queued') {
         statusBadge.classList.add('badge-gray');
+        statusBadge.textContent = 'Queued';
       } else if (job.status === 'processing') {
         statusBadge.classList.add('badge-blue');
+        statusBadge.textContent = 'Processing';
       } else if (job.status === 'completed') {
         statusBadge.classList.add('badge-green');
+        statusBadge.textContent = 'Completed';
       } else if (job.status === 'failed') {
         statusBadge.classList.add('badge-red');
+        statusBadge.textContent = 'Failed';
+      } else if (job.status === 'cancelled') {
+        statusBadge.classList.add('badge-gray');
+        statusBadge.textContent = 'Cancelled';
       }
     }
 
@@ -191,6 +197,19 @@ function renderJobsList(jobs) {
     actions.className = 'job-card-actions';
 
     if (!isExpired) {
+      // Add cancel button for processing/queued jobs
+      if (job.status === 'processing' || job.status === 'queued') {
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn btn-danger btn-sm';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleJobCancel(job.id, cancelBtn);
+        });
+        actions.appendChild(cancelBtn);
+      }
+
       const actionLink = document.createElement('a');
       actionLink.href = `#job/${job.id}`;
 
@@ -204,6 +223,9 @@ function renderJobsList(jobs) {
         actionLink.textContent = 'View Details';
         actionLink.className = 'btn btn-secondary btn-sm';
       } else if (job.status === 'queued') {
+        actionLink.textContent = 'View Details';
+        actionLink.className = 'btn btn-secondary btn-sm';
+      } else if (job.status === 'cancelled') {
         actionLink.textContent = 'View Details';
         actionLink.className = 'btn btn-secondary btn-sm';
       }
@@ -223,6 +245,44 @@ function renderJobsList(jobs) {
 
     container.appendChild(jobCard);
   });
+}
+
+/**
+ * Handle inline cancel button click
+ * @param {string} jobId - Job ID to cancel
+ * @param {HTMLButtonElement} button - Cancel button element
+ */
+async function handleJobCancel(jobId, button) {
+  // Confirmation dialog
+  const confirmed = confirm('Are you sure you want to cancel this job?');
+  if (!confirmed) {
+    return;
+  }
+
+  const originalText = button.textContent;
+
+  try {
+    // Update button to "Cancelling..." and disable
+    button.textContent = 'Cancelling...';
+    button.disabled = true;
+    button.classList.add('btn-disabled');
+
+    // Send cancel request
+    await apiCall(`/api/jobs/${jobId}/cancel`, {
+      method: 'POST'
+    });
+
+    // Refresh job list immediately
+    fetchAndRenderJobs();
+  } catch (err) {
+    console.error('Cancel failed:', err);
+    alert(`Failed to cancel job: ${err.message}`);
+
+    // Re-enable button on error for retry
+    button.textContent = originalText;
+    button.disabled = false;
+    button.classList.remove('btn-disabled');
+  }
 }
 
 /**
