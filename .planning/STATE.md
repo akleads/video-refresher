@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
-**Current focus:** Phase 15 complete, ready for Phase 16
+**Current focus:** Phase 16 plan 1 complete, plan 2 pending (frontend upload flow)
 
 ## Current Position
 
-Phase: 15 of 19 (Format Support)
-Plan: 1 of 1 (complete)
-Status: Phase complete
-Last activity: 2026-02-10 — Completed 15-01-PLAN.md (MOV file support)
+Phase: 16 of 19 (Device Job History Upload)
+Plan: 1 of 2 (complete)
+Status: In progress
+Last activity: 2026-02-10 — Completed 16-01-PLAN.md (server endpoint for device result upload)
 
-Progress: [██████████████████░░] 79% (15 of 19 phases complete)
+Progress: [██████████████████░░] 80% (16 of 20 plans complete across all phases)
 
 ## Performance Metrics
 
@@ -31,7 +31,7 @@ Progress: [██████████████████░░] 79% (15
 - Average duration: 3.1 min
 
 **v4.0 Velocity:**
-- Total plans completed: 2
+- Total plans completed: 3
 - Average duration: 3.5 min
 
 ## Accumulated Context
@@ -49,6 +49,8 @@ Recent decisions affecting v4.0:
 - v4.0: Nav uses elevated bg with border separator instead of gradient
 - v4.0: Extension-agnostic basename extraction via path.extname() for multi-format support
 - v4.0: Dynamic FFmpeg.wasm input filename for correct container detection
+- v4.0: Separate deviceUpload multer without MIME filter for browser blob uploads
+- v4.0: outputDir passed as parameter to createJobsRouter for testability
 
 ### Pending Todos
 
@@ -61,5 +63,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 15-01-PLAN.md
+Stopped at: Completed 16-01-PLAN.md
 Resume file: None
