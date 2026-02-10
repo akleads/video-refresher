@@ -94,7 +94,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 17-01-PLAN.md — Add filenames to job list API, redesign cards with filename titles, source badges, and aligned metadata
+- [x] 17-01-PLAN.md — Add filenames to job list API, redesign cards with filename titles, source badges, and aligned metadata
 
 #### Phase 18: Visual Polish
 **Goal**: Improved spacing, visual hierarchy, and upload experience across all views
@@ -141,6 +141,6 @@ Plans:
 | 14. CSS Foundation | v4.0 | 1/1 | Complete | 2026-02-10 |
 | 15. Format Support | v4.0 | 1/1 | Complete | 2026-02-10 |
 | 16. Device Job History Upload | v4.0 | 2/2 | Complete | 2026-02-10 |
-| 17. Unified History Display | v4.0 | 0/1 | Not started | - |
+| 17. Unified History Display | v4.0 | 1/1 | Complete | 2026-02-10 |
 | 18. Visual Polish | v4.0 | 0/0 | Not started | - |
 | 19. Enhanced Job Cards | v4.0 | 0/0 | Not started | - |
