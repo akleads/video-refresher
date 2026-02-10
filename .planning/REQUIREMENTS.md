@@ -56,25 +56,25 @@ Requirements for v4.0 Polish & Format Support. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FMT-01 | — | Pending |
-| FMT-02 | — | Pending |
-| HIST-01 | — | Pending |
-| HIST-02 | — | Pending |
-| HIST-03 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| UX-04 | — | Pending |
-| UI-01 | — | Pending |
-| UI-02 | — | Pending |
-| UI-03 | — | Pending |
-| UI-04 | — | Pending |
+| FMT-01 | Phase 15 | Pending |
+| FMT-02 | Phase 15 | Pending |
+| HIST-01 | Phase 16 | Pending |
+| HIST-02 | Phase 16 | Pending |
+| HIST-03 | Phase 17 | Pending |
+| UX-01 | Phase 17 | Pending |
+| UX-02 | Phase 17 | Pending |
+| UX-03 | Phase 19 | Pending |
+| UX-04 | Phase 19 | Pending |
+| UI-01 | Phase 14 | Pending |
+| UI-02 | Phase 18 | Pending |
+| UI-03 | Phase 18 | Pending |
+| UI-04 | Phase 18 | Pending |
 
 **Coverage:**
 - v4.0 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 (pending roadmap creation)
+- Mapped to phases: 13/13 (100%)
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-09*
-*Last updated: 2026-02-09 after initial definition*
+*Last updated: 2026-02-09 after roadmap creation*
