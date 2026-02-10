@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A video variation generator for ad creative rotation. Upload multiple MP4 videos, specify how many variations you need, and get uniquely "refreshed" versions with random visual effects — all processed server-side with native FFmpeg on Fly.io. Small team tool with shared password access, temporary result storage (3GB / 24h), and single ZIP download for all outputs.
+A video variation generator for ad creative rotation. Upload multiple MP4 videos, choose to process on-device (FFmpeg.wasm) or send to server (native FFmpeg on Fly.io), specify how many variations you need, and get uniquely "refreshed" versions with random visual effects. Small team tool with shared password access, temporary server result storage (3GB / 24h), and single ZIP download for all outputs.
 
 ## Core Value
 
@@ -34,13 +34,14 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 - ✓ Single ZIP download with all variations organized by source video — v2.0
 - ✓ Shared password authentication for team access — v2.0
 - ✓ Fire-and-forget UX — close tab, return to results later — v2.0
+- ✓ Toggle on upload page: "Process on device" vs "Send to server" — v3.0
+- ✓ Device processing with FFmpeg.wasm in browser (multi-threaded, ZIP download) — v3.0
+- ✓ COOP/COEP headers restored for SharedArrayBuffer support — v3.0
+- ✓ Cancel in-progress server jobs (kill FFmpeg, clean up files) — v3.0
 
 ### Active
 
-- [ ] Toggle on upload page: "Process on device" vs "Send to server"
-- [ ] Device processing with FFmpeg.wasm in browser (multi-threaded, ZIP download)
-- [ ] COOP/COEP headers restored for SharedArrayBuffer support
-- [ ] Cancel in-progress server jobs (kill FFmpeg, clean up files)
+(None — all requirements shipped through v3.0)
 
 ### Out of Scope
 
@@ -56,14 +57,15 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 
 - v1.0 ran entirely client-side with FFmpeg.wasm 0.12.14 on Cloudflare Pages
 - v2.0 moved processing to server-side native FFmpeg on Fly.io (10-50x faster than wasm)
-- Frontend is now an API-driven SPA with hash routing, no framework (vanilla JS ES modules)
+- v3.0 restored FFmpeg.wasm as optional on-device processing alongside server mode
+- Frontend is a vanilla JS SPA with hash routing, ES modules, no framework
 - Server: Express 5 + SQLite (WAL mode) + native FFmpeg via child_process.spawn
 - Docker container (node:22-slim) deployed to Fly.io with 3GB persistent volume
 - HMAC bearer token auth with 24h sessions, shared password via AUTH_PASSWORD env var
 - Cleanup daemon: 24h expiry + 85% storage eviction at 5-minute intervals
-- 5,708 LOC total (3,627 server + 1,989 frontend + config)
-- v2.0 removed all FFmpeg.wasm code — v3.0 brings it back as an option alongside server processing
-- COOP/COEP headers removed in v2.0, will be restored in v3.0 for SharedArrayBuffer
+- COOP/COEP headers on Cloudflare Pages, CORP header on Fly.io API
+- Device processing: FFmpeg.wasm 0.12.x in Web Workers, 2 concurrent workers, client-zip for download
+- 4,428 LOC JavaScript total across frontend and server
 
 ## Constraints
 
@@ -98,8 +100,13 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 | SQLite WAL mode | Concurrent reads during writes, prevents SQLITE_BUSY | ✓ Good |
 | XHR for file uploads | Enables upload progress events via xhr.upload (fetch lacks this) | ✓ Good |
 | createElement for all DOM | Prevents XSS vulnerabilities, no innerHTML in user-facing views | ✓ Good |
-| Adaptive polling (2s → 10s backoff) | Active job monitoring needs fast initial updates, backs off to reduce load | ✓ Good |
+| Adaptive polling (2s -> 10s backoff) | Active job monitoring needs fast initial updates, backs off to reduce load | ✓ Good |
 | Page Visibility API for polling | Pause background polls when tab hidden — battery and bandwidth efficiency | ✓ Good |
+| COEP credentialless (v3) | Avoids CORP requirements on CDN resources while enabling SharedArrayBuffer | ✓ Good |
+| Shared effects module with seedrandom (v3) | Isomorphic effect generation — same seeds produce same effects on device and server | ✓ Good |
+| 2 fixed Web Workers for device processing (v3) | Predictable performance on typical devices without dynamic scaling complexity | ✓ Good |
+| 3-stage FFmpeg termination (v3) | stdin q -> SIGTERM -> SIGKILL gives FFmpeg best chance to clean up gracefully | ✓ Good |
+| Radio buttons for mode selection (v3) | Clear workflow choice applied on submit, not toggle with immediate effect | ✓ Good |
 
 ---
-*Last updated: 2026-02-08 after v3.0 milestone start*
+*Last updated: 2026-02-09 after v3.0 milestone complete*

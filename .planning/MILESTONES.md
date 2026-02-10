@@ -50,3 +50,30 @@
 **What's next:** v2.0 Server-Side Multi-Video Processing
 
 ---
+
+## v3.0 Hybrid Processing (Shipped: 2026-02-09)
+
+**Delivered:** Hybrid device/server processing mode with upload page toggle, FFmpeg.wasm in Web Workers for client-side processing, and server job cancellation with graceful FFmpeg termination.
+
+**Phases completed:** 10-13 (8 plans total)
+
+**Key accomplishments:**
+- COOP/COEP headers restored for SharedArrayBuffer + shared isomorphic effects module with seedrandom
+- FFmpeg.wasm 0.12.x in Web Workers with multi-threaded support, single-threaded fallback, and mobile detection
+- Worker pool (2 concurrent workers) with retry-once-skip, partial cancellation, and client-zip streaming download
+- Server job cancellation with 3-stage graceful FFmpeg termination (stdin q -> SIGTERM -> SIGKILL)
+- Upload page mode toggle (device/server) with localStorage persistence and capability-aware fallback
+- All 14 requirements shipped, zero dropped
+
+**Stats:**
+- 60 files changed (+8,644 / -632 lines)
+- 4,428 lines of JavaScript (total codebase)
+- 4 phases, 8 plans
+- 3 days from milestone start to ship (2026-02-07 -> 2026-02-09)
+
+**Git range:** `07dfbe9` -> `f4e32f8`
+
+**What's next:** Project feature-complete. Future candidates: SSE real-time progress, metadata manifest in ZIP, retry failed videos, resumable uploads.
+
+---
+
