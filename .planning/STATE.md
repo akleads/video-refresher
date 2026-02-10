@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
-**Current focus:** Phase 14 complete, ready for Phase 15
+**Current focus:** Phase 15 complete, ready for Phase 16
 
 ## Current Position
 
-Phase: 14 of 19 (CSS Foundation)
+Phase: 15 of 19 (Format Support)
 Plan: 1 of 1 (complete)
 Status: Phase complete
-Last activity: 2026-02-10 — Completed 14-01-PLAN.md (CSS custom properties + dark palette)
+Last activity: 2026-02-10 — Completed 15-01-PLAN.md (MOV file support)
 
-Progress: [█████████████████░░░] 74% (14 of 19 phases complete)
+Progress: [██████████████████░░] 79% (15 of 19 phases complete)
 
 ## Performance Metrics
 
@@ -31,8 +31,8 @@ Progress: [█████████████████░░░] 74% (14
 - Average duration: 3.1 min
 
 **v4.0 Velocity:**
-- Total plans completed: 1
-- Average duration: 5.0 min
+- Total plans completed: 2
+- Average duration: 3.5 min
 
 ## Accumulated Context
 
@@ -47,6 +47,8 @@ Recent decisions affecting v4.0:
 - v4.0: Two-layer CSS variable system (base grayscale + semantic aliases)
 - v4.0: True blacks for grayscale (#0a0a0a) not just dark grays
 - v4.0: Nav uses elevated bg with border separator instead of gradient
+- v4.0: Extension-agnostic basename extraction via path.extname() for multi-format support
+- v4.0: Dynamic FFmpeg.wasm input filename for correct container detection
 
 ### Pending Todos
 
@@ -59,5 +61,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 14-01-PLAN.md
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
