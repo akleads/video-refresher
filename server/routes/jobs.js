@@ -174,7 +174,7 @@ export function createJobsRouter(db, queries) {
     // Build map from job_file_id to folder name
     const folderMap = new Map();
     for (const jf of jobFiles) {
-      const folderName = jf.original_name.replace(/\.mp4$/i, '');
+      const folderName = jf.original_name.replace(/\.(mp4|mov)$/i, '');
       folderMap.set(jf.id, folderName);
     }
 

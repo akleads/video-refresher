@@ -47,7 +47,7 @@ async function processFile(file, job, variationsPerVideo, db, queries, outputDir
     const filterString = buildFilterString(effects[i]);
 
     // b. Generate output filename
-    const baseName = path.basename(file.original_name, '.mp4');
+    const baseName = path.basename(file.original_name, path.extname(file.original_name));
     const outputFilename = `${baseName}_var${i + 1}_${generateId()}.mp4`;
 
     // c. Build output path
