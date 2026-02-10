@@ -28,10 +28,10 @@ Requirements for hybrid processing and job cancellation. Each maps to roadmap ph
 
 ### Job Cancellation
 
-- [ ] **CANC-01**: Cancel button on job detail page for in-progress server jobs
-- [ ] **CANC-02**: Server cancellation endpoint kills FFmpeg process and cleans up partial files
-- [ ] **CANC-03**: Graceful FFmpeg termination sequence (stdin 'q' → SIGTERM → SIGKILL)
-- [ ] **CANC-04**: Cancelled jobs show "Cancelled" status in job history
+- [x] **CANC-01**: Cancel button on job detail page for in-progress server jobs
+- [x] **CANC-02**: Server cancellation endpoint kills FFmpeg process and cleans up partial files
+- [x] **CANC-03**: Graceful FFmpeg termination sequence (stdin 'q' → SIGTERM → SIGKILL)
+- [x] **CANC-04**: Cancelled jobs show "Cancelled" status in job history
 
 ## Future Requirements
 
@@ -66,10 +66,10 @@ Deferred to post-v3.0 milestones.
 | MODE-01 | Phase 13 | Pending |
 | MODE-02 | Phase 13 | Pending |
 | MODE-03 | Phase 10 | Complete |
-| CANC-01 | Phase 12 | Pending |
-| CANC-02 | Phase 12 | Pending |
-| CANC-03 | Phase 12 | Pending |
-| CANC-04 | Phase 12 | Pending |
+| CANC-01 | Phase 12 | Complete |
+| CANC-02 | Phase 12 | Complete |
+| CANC-03 | Phase 12 | Complete |
+| CANC-04 | Phase 12 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 14 total
@@ -78,4 +78,4 @@ Deferred to post-v3.0 milestones.
 
 ---
 *Requirements defined: 2026-02-08*
-*Traceability updated: 2026-02-08*
+*Traceability updated: 2026-02-09*

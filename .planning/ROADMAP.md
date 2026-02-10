@@ -32,7 +32,7 @@ Phases 6-9 delivered server-side video processing on Fly.io with multi-video bat
 
 - [x] **Phase 10: Foundation & Abstraction** - Cross-origin headers, shared effects library, capability detection
 - [x] **Phase 11: Device Processing Core** - FFmpeg.wasm in Web Worker with ZIP download and progress
-- [ ] **Phase 12: Server Job Cancellation** - Cancel endpoint, graceful FFmpeg kill, cancelled status
+- [x] **Phase 12: Server Job Cancellation** - Cancel endpoint, graceful FFmpeg kill, cancelled status
 - [ ] **Phase 13: Upload View Integration** - Mode toggle UI, localStorage persistence, mode-aware submit
 
 ## Phase Details
@@ -80,8 +80,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md -- Backend cancel endpoint, graceful FFmpeg termination, cancellation-aware processor
-- [ ] 12-02-PLAN.md -- Frontend cancel button UI on job detail and job list views
+- [x] 12-01-PLAN.md -- Backend cancel endpoint, graceful FFmpeg termination, cancellation-aware processor
+- [x] 12-02-PLAN.md -- Frontend cancel button UI on job detail and job list views
 
 ### Phase 13: Upload View Integration
 **Goal**: Upload page presents a clear choice between device and server processing, remembers the preference, and routes submissions accordingly
@@ -111,5 +111,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 9. Frontend Integration | v2.0 | 4/4 | Complete | 2026-02-08 |
 | 10. Foundation & Abstraction | v3.0 | 2/2 | Complete | 2026-02-08 |
 | 11. Device Processing Core | v3.0 | 3/3 | Complete | 2026-02-09 |
-| 12. Server Job Cancellation | v3.0 | 0/2 | Not started | - |
+| 12. Server Job Cancellation | v3.0 | 2/2 | Complete | 2026-02-09 |
 | 13. Upload View Integration | v3.0 | 0/TBD | Not started | - |
