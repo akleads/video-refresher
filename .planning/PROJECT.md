@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A video variation generator for ad creative rotation. Upload multiple MP4 videos, choose to process on-device (FFmpeg.wasm) or send to server (native FFmpeg on Fly.io), specify how many variations you need, and get uniquely "refreshed" versions with random visual effects. Small team tool with shared password access, temporary server result storage (3GB / 24h), and single ZIP download for all outputs.
+A video variation generator for ad creative rotation. Upload MP4 or MOV videos, choose to process on-device (FFmpeg.wasm) or send to server (native FFmpeg on Fly.io), specify how many variations you need, and get uniquely "refreshed" MP4 versions with random visual effects. Small team tool with shared password access, temporary server result storage (3GB / 24h), and single ZIP download for all outputs.
 
 ## Core Value
 
@@ -41,11 +41,21 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 
 ### Active
 
-(None — all requirements shipped through v3.0)
+## Current Milestone: v4.0 Polish & Format Support
+
+**Goal:** Add MOV input support, unify device/server job history, improve visual polish, and add quality-of-life features (notifications, thumbnails).
+
+**Target features:**
+- MOV input support (output always MP4)
+- Device-processed jobs upload results to server and appear in job history
+- Visual polish: better spacing, cleaner cards, improved drop zone, CSS variables
+- Job card improvements: show source filenames, fix layout/alignment
+- Browser notifications when server jobs complete
+- Video thumbnails in job history
 
 ### Out of Scope
 
-- Video format support beyond MP4 — MP4 is standard for ad platforms
+- Video format support beyond MP4/MOV — these two cover ad platform needs
 - Mobile app — web-only
 - Manual effect selection per variation — defeats "quick refresh" value prop
 - Individual user accounts — shared password sufficient for small team
@@ -72,7 +82,7 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 - **Platform**: Fly.io for backend, Cloudflare Pages for frontend
 - **Cost**: Small Fly machine + volume (~$5-10/month)
 - **Storage**: 3GB Fly Volume for processed videos + 24-hour auto-expiry
-- **File format**: MP4 input and output only
+- **File format**: MP4/MOV input, MP4 output only
 - **Auth**: Shared password — no user management complexity
 - **Team size**: Small team (< 10 people), no need for per-user quotas
 
@@ -109,4 +119,4 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 | Radio buttons for mode selection (v3) | Clear workflow choice applied on submit, not toggle with immediate effect | ✓ Good |
 
 ---
-*Last updated: 2026-02-09 after v3.0 milestone complete*
+*Last updated: 2026-02-09 after v4.0 milestone started*

@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
-**Current focus:** v3.0 complete -- planning next milestone
+**Current focus:** v4.0 Polish & Format Support
 
 ## Current Position
 
-Phase: 13 of 13 (Upload View Integration)
-Plan: 1 of 1
-Status: Milestone v3.0 complete
-Last activity: 2026-02-09 -- v3.0 archived
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-09 — Milestone v4.0 started
 
-Progress: [####################] 100% (28/28 plans, v3.0 COMPLETE)
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -47,6 +47,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: v3.0 milestone archived
+Stopped at: Defining v4.0 requirements
 Resume file: None
-Next: /gsd:new-milestone if starting v4.0
