@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-08)
 ## Current Position
 
 Phase: 12 of 13 (Server Job Cancellation)
-Plan: 01 of 1
-Status: Complete
-Last activity: 2026-02-09 -- Completed 12-01-PLAN.md
+Plan: 02 of 02
+Status: Complete - Phase 12 Complete
+Last activity: 2026-02-09 -- Completed 12-02-PLAN.md
 
-Progress: [################----] 96% (26/~27 plans, v3.0 in progress)
+Progress: [#################---] 100% (27/27 plans, v3.0 complete)
 
 ## Performance Metrics
 
@@ -26,9 +26,9 @@ Progress: [################----] 96% (26/~27 plans, v3.0 in progress)
 - Total plans completed: 12
 - Average duration: 2.3 min
 
-**v3.0 Velocity (in progress):**
-- Total plans completed: 6
-- Average duration: 3.2 min
+**v3.0 Velocity:**
+- Total plans completed: 8
+- Average duration: 3.1 min
 
 ## Accumulated Context
 
@@ -68,6 +68,14 @@ Full decision log in PROJECT.md Key Decisions table (22 decisions, all marked Go
 - cancelled-in-cleanup: Cancelled jobs follow same 24h expiry lifecycle as completed/failed
 - process-registry: Map<jobFileId, ChildProcess> for active FFmpeg process tracking
 
+**Phase 12 (Plan 02):**
+- confirmation-dialog: Browser confirm() before cancel to prevent accidental job termination
+- cancelling-state: Show "Cancelling..." and disable button during cancel request for visual feedback
+- error-recovery: Re-enable cancel button on failure for retry without page refresh
+- gray-badge-cancelled: Gray badge for cancelled status (neutral/user-initiated, distinct from red failed)
+- completion-count-format: "Cancelled (X/Y)" format shows partial progress on detail page
+- partial-download: Download button for cancelled jobs with completed variations
+
 ### Pending Todos
 
 None.
@@ -79,6 +87,6 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-09
-Stopped at: Completed 12-01-PLAN.md (Server Job Cancellation)
+Stopped at: Completed 12-02-PLAN.md (Server Job Cancellation - Phase Complete)
 Resume file: None
-Next: Phase 13 (UI Hybrid Processing)
+Next: Phase 13 (UI Hybrid Processing) - Final phase to integrate device-side and server-side processing modes
