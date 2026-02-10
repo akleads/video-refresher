@@ -70,6 +70,7 @@ export function createJobsRouter(db, queries) {
     res.json({
       jobId: job.id,
       status: job.status,
+      source: job.source || 'server',
       totalVideos: job.total_videos,
       totalVariations: job.total_variations,
       overallProgress,
@@ -98,6 +99,7 @@ export function createJobsRouter(db, queries) {
       status: job.status,
       totalVideos: job.total_videos,
       totalVariations: job.total_variations,
+      source: job.source || 'server',
       createdAt: job.created_at
     })));
   });

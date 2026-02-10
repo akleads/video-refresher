@@ -48,6 +48,7 @@ export function migrateSchema(db) {
     { table: 'job_files', name: 'completed_variations', sql: "ALTER TABLE job_files ADD COLUMN completed_variations INTEGER NOT NULL DEFAULT 0" },
     { table: 'job_files', name: 'updated_at', sql: "ALTER TABLE job_files ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))" },
     { table: 'jobs', name: 'cancelled_at', sql: "ALTER TABLE jobs ADD COLUMN cancelled_at TEXT" },
+    { table: 'jobs', name: 'source', sql: "ALTER TABLE jobs ADD COLUMN source TEXT NOT NULL DEFAULT 'server'" },
   ];
 
   for (const col of columns) {

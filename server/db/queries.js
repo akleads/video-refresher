@@ -118,6 +118,17 @@ export function createJobQueries(db) {
       SELECT * FROM jobs
       WHERE status = 'queued'
         AND expires_at < datetime('now')
+    `),
+
+    // Device job queries
+    insertDeviceJob: db.prepare(`
+      INSERT INTO jobs (id, total_videos, total_variations, source, status, expires_at)
+      VALUES (?, ?, ?, 'device', 'completed', datetime('now', '+24 hours'))
+    `),
+
+    insertDeviceJobFile: db.prepare(`
+      INSERT INTO job_files (id, job_id, original_name, upload_path, file_size, status, completed_variations)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `)
   };
 }
