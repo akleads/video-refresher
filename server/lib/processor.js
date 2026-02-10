@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawnFFmpeg, getVideoDuration } from './ffmpeg.js';
 import { generateUniqueEffects, buildFilterString } from './effects.js';
 import { generateId } from './id.js';
+import { registerProcess, unregisterProcess } from './cancel.js';
 
 /**
  * Process a single file: probe duration, generate variations, spawn FFmpeg for each.
@@ -35,6 +36,13 @@ async function processFile(file, job, variationsPerVideo, db, queries, outputDir
 
   // 7. Process each variation
   for (let i = 0; i < variationsPerVideo; i++) {
+    // Check for cancellation before starting next variation
+    const isCancelled = queries.isJobCancelled.get(job.id);
+    if (isCancelled) {
+      console.log(`Job ${job.id} cancelled, stopping file ${file.id} at variation ${i}/${variationsPerVideo}`);
+      break;
+    }
+
     // a. Build filter string from effects[i]
     const filterString = buildFilterString(effects[i]);
 
@@ -57,28 +65,96 @@ async function processFile(file, job, variationsPerVideo, db, queries, outputDir
     // e. Call spawnFFmpeg
     const ffmpegResult = spawnFFmpeg(file.upload_path, outputPath, filterString, onProgress, duration);
 
-    // f. Store pid
+    // f. Store pid and register process
     queries.updateFilePid.run(ffmpegResult.process.pid, file.id);
+    registerProcess(file.id, ffmpegResult.process);
 
-    // g. Await ffmpegResult.promise
-    await ffmpegResult.promise;
+    try {
+      // g. Await ffmpegResult.promise
+      await ffmpegResult.promise;
 
-    // h. Clear pid
-    queries.updateFilePid.run(null, file.id);
+      // h. Clear pid and unregister process
+      queries.updateFilePid.run(null, file.id);
+      unregisterProcess(file.id);
 
-    // i. Get output file size
-    const stats = fs.statSync(outputPath);
-    const fileSize = stats.size;
+      // i. Get output file size
+      const stats = fs.statSync(outputPath);
+      const fileSize = stats.size;
 
-    // j. Insert output file record
-    queries.insertOutputFile.run(generateId(), job.id, file.id, i, outputPath, fileSize);
+      // j. Insert output file record
+      queries.insertOutputFile.run(generateId(), job.id, file.id, i, outputPath, fileSize);
 
-    // k. Increment completed variations
-    queries.incrementFileVariations.run(file.id);
+      // k. Increment completed variations
+      queries.incrementFileVariations.run(file.id);
+    } catch (err) {
+      // Clear pid and unregister on error
+      queries.updateFilePid.run(null, file.id);
+      unregisterProcess(file.id);
+
+      // Check if error was due to cancellation
+      const isCancelled = queries.isJobCancelled.get(job.id);
+      if (isCancelled) {
+        console.log(`Job ${job.id} cancelled during variation ${i + 1}, FFmpeg killed`);
+        // Delete partial output file if it exists
+        try {
+          if (fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+          }
+        } catch (cleanupErr) {
+          console.error(`Failed to delete partial file ${outputPath}:`, cleanupErr.message);
+        }
+        break; // Exit variation loop
+      } else {
+        // Not cancellation, genuine error - re-throw
+        throw err;
+      }
+    }
   }
 
-  // 8. After all variations complete, set progress to 100
-  queries.updateFileProgress.run(100, file.id);
+  // 8. After all variations complete, set progress to 100 (if not cancelled)
+  const isCancelled = queries.isJobCancelled.get(job.id);
+  if (!isCancelled) {
+    queries.updateFileProgress.run(100, file.id);
+  }
+}
+
+/**
+ * Clean up partial output files after cancellation.
+ * @param {string} jobId - Job ID
+ * @param {Object} queries - Database prepared statements
+ * @param {string} outputDir - Base output directory
+ */
+function cleanupPartialFiles(jobId, queries, outputDir) {
+  const jobOutputDir = path.join(outputDir, jobId);
+
+  if (!fs.existsSync(jobOutputDir)) {
+    return; // No output directory, nothing to clean
+  }
+
+  // Get all completed output files from database
+  const completedOutputs = queries.getOutputFiles.all(jobId);
+  const completedPaths = new Set(completedOutputs.map(o => o.output_path));
+
+  // Scan job output directory
+  try {
+    const allFiles = fs.readdirSync(jobOutputDir);
+
+    for (const filename of allFiles) {
+      const fullPath = path.join(jobOutputDir, filename);
+
+      // If file is not in database, it's a partial file - delete it
+      if (!completedPaths.has(fullPath)) {
+        try {
+          fs.unlinkSync(fullPath);
+          console.log(`Cleaned up partial file: ${filename}`);
+        } catch (err) {
+          console.error(`Failed to delete partial file ${fullPath}:`, err.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to scan directory ${jobOutputDir}:`, err.message);
+  }
 }
 
 /**
@@ -99,9 +175,18 @@ export async function processJob(job, db, queries, outputDir) {
   const variationsPerVideo = Math.round(job.total_variations / job.total_videos);
 
   let allSucceeded = true;
+  let cancelled = false;
 
   // 4. Process each file
   for (const file of files) {
+    // Check for cancellation before processing next file
+    const isCancelled = queries.isJobCancelled.get(job.id);
+    if (isCancelled) {
+      cancelled = true;
+      console.log(`Job ${job.id} cancelled, skipping remaining files`);
+      break;
+    }
+
     try {
       await processFile(file, job, variationsPerVideo, db, queries, outputDir);
       queries.updateFileStatus.run('completed', file.id);
@@ -113,22 +198,30 @@ export async function processJob(job, db, queries, outputDir) {
     }
   }
 
-  // 5. Mark job as completed or failed
-  if (allSucceeded) {
-    queries.updateJobStatus.run('completed', job.id);
-  } else {
-    const updatedFiles = queries.getJobFiles.all(job.id);
-    const allFailed = updatedFiles.every(f => f.status === 'failed');
+  // 5. Clean up partial files if cancelled
+  if (cancelled) {
+    cleanupPartialFiles(job.id, queries, outputDir);
+  }
 
-    if (allFailed) {
-      queries.updateJobError.run('All videos failed to process', job.id);
-    } else {
+  // 6. Mark job as completed or failed (only if not already cancelled)
+  const currentJob = queries.getJob.get(job.id);
+  if (currentJob.status !== 'cancelled') {
+    if (allSucceeded) {
       queries.updateJobStatus.run('completed', job.id);
-      // Job is "completed" even if some files failed -- partial success
+    } else {
+      const updatedFiles = queries.getJobFiles.all(job.id);
+      const allFailed = updatedFiles.every(f => f.status === 'failed');
+
+      if (allFailed) {
+        queries.updateJobError.run('All videos failed to process', job.id);
+      } else {
+        queries.updateJobStatus.run('completed', job.id);
+        // Job is "completed" even if some files failed -- partial success
+      }
     }
   }
 
-  // 6. Clean up upload source files (best-effort)
+  // 7. Clean up upload source files (best-effort)
   for (const file of files) {
     try {
       fs.unlinkSync(file.upload_path);

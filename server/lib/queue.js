@@ -40,7 +40,11 @@ export class JobQueueWorker {
           console.log(`Job ${nextJob.id} completed`);
         } catch (err) {
           console.error(`Job ${nextJob.id} failed:`, err.message);
-          this.queries.updateJobError.run(err.message, nextJob.id);
+          // Only mark as failed if not already cancelled
+          const finalJob = this.queries.getJob.get(nextJob.id);
+          if (finalJob && finalJob.status !== 'cancelled') {
+            this.queries.updateJobError.run(err.message, nextJob.id);
+          }
         }
 
         this.currentJobId = null;

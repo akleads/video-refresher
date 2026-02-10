@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { upload } from '../middleware/upload.js';
 import { generateId } from '../lib/id.js';
+import { cancelJobProcesses } from '../lib/cancel.js';
 import archiver from 'archiver';
 import path from 'node:path';
 
@@ -84,6 +85,7 @@ export function createJobsRouter(db, queries) {
       })),
       createdAt: job.created_at,
       expiresAt: job.expires_at,
+      cancelledAt: job.cancelled_at || null,
       error: job.error
     });
   });
@@ -100,12 +102,58 @@ export function createJobsRouter(db, queries) {
     })));
   });
 
+  // POST /:id/cancel - Cancel a job
+  router.post('/:id/cancel', requireAuth, async (req, res) => {
+    const job = queries.getJob.get(req.params.id);
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Only cancellable if queued or processing
+    if (!['queued', 'processing'].includes(job.status)) {
+      return res.status(409).json({
+        error: 'Job cannot be cancelled',
+        status: job.status,
+        message: job.status === 'completed' ? 'Job already completed' :
+                 job.status === 'failed' ? 'Job already failed' :
+                 'Job already cancelled'
+      });
+    }
+
+    // Mark job as cancelled in database
+    queries.cancelJob.run(job.id);
+
+    // Kill active FFmpeg processes for this job
+    const jobFiles = queries.getJobFiles.all(job.id);
+    try {
+      await cancelJobProcesses(jobFiles, queries);
+    } catch (err) {
+      console.error(`Error killing FFmpeg processes for job ${job.id}:`, err.message);
+    }
+
+    // Get final job status (may have completed during kill)
+    const finalJob = queries.getJob.get(job.id);
+
+    // Calculate completed variations
+    const files = queries.getJobFiles.all(job.id);
+    const completedVariations = files.reduce((sum, f) => sum + (f.completed_variations || 0), 0);
+
+    res.json({
+      jobId: finalJob.id,
+      status: finalJob.status,
+      completedVariations,
+      totalVariations: finalJob.total_variations,
+      cancelledAt: finalJob.cancelled_at
+    });
+  });
+
   // GET /:id/download - Download job outputs as ZIP
   router.get('/:id/download', requireAuth, (req, res) => {
     const job = queries.getJob.get(req.params.id);
 
-    // Check job exists and is completed
-    if (!job || job.status !== 'completed') {
+    // Check job exists and is completed or cancelled (with outputs)
+    if (!job || !['completed', 'cancelled'].includes(job.status)) {
       return res.status(404).json({ error: 'Job not found or not completed' });
     }
 
