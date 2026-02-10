@@ -77,11 +77,11 @@ Plans:
   2. Clicking Cancel sends a request that kills the running FFmpeg process on the server and removes partial output files
   3. FFmpeg termination follows the graceful sequence: stdin 'q' first, then SIGTERM, then SIGKILL as escalation
   4. Cancelled jobs display "Cancelled" status in the job history list and on the job detail page
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 12-01: TBD
-- [ ] 12-02: TBD
+- [ ] 12-01-PLAN.md -- Backend cancel endpoint, graceful FFmpeg termination, cancellation-aware processor
+- [ ] 12-02-PLAN.md -- Frontend cancel button UI on job detail and job list views
 
 ### Phase 13: Upload View Integration
 **Goal**: Upload page presents a clear choice between device and server processing, remembers the preference, and routes submissions accordingly
@@ -111,5 +111,5 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
 | 9. Frontend Integration | v2.0 | 4/4 | Complete | 2026-02-08 |
 | 10. Foundation & Abstraction | v3.0 | 2/2 | Complete | 2026-02-08 |
 | 11. Device Processing Core | v3.0 | 3/3 | Complete | 2026-02-09 |
-| 12. Server Job Cancellation | v3.0 | 0/TBD | Not started | - |
+| 12. Server Job Cancellation | v3.0 | 0/2 | Not started | - |
 | 13. Upload View Integration | v3.0 | 0/TBD | Not started | - |
