@@ -186,15 +186,16 @@ export function createJobsRouter(db, queries, outputDir) {
     });
   });
 
-  // GET / - List jobs
+  // GET / - List jobs (with source filenames)
   router.get('/', requireAuth, (req, res) => {
-    const jobs = queries.listJobs.all();
+    const jobs = queries.listJobsWithFiles.all();
     res.json(jobs.map(job => ({
       id: job.id,
       status: job.status,
       totalVideos: job.total_videos,
       totalVariations: job.total_variations,
       source: job.source || 'server',
+      fileNames: job.file_names ? job.file_names.split(',') : [],
       createdAt: job.created_at
     })));
   });

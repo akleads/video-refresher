@@ -22,6 +22,15 @@ export function createJobQueries(db) {
       SELECT * FROM jobs ORDER BY created_at DESC LIMIT 50
     `),
 
+    listJobsWithFiles: db.prepare(`
+      SELECT j.*, GROUP_CONCAT(jf.original_name) as file_names
+      FROM jobs j
+      LEFT JOIN job_files jf ON jf.job_id = j.id
+      GROUP BY j.id
+      ORDER BY j.created_at DESC
+      LIMIT 50
+    `),
+
     // Progress tracking
     updateFileProgress: db.prepare(`
       UPDATE job_files SET progress_percent = ?, updated_at = datetime('now') WHERE id = ?
