@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-09)
 ## Current Position
 
 Phase: 18 of 19 (Visual Polish)
-Plan: 1 of 1 (complete)
+Plan: 2 of 2 (complete)
 Status: Phase complete
-Last activity: 2026-02-10 — Completed 18-01-PLAN.md (spacing scale, full-width layout, branded login)
+Last activity: 2026-02-10 — Completed 18-02-PLAN.md (drop zone states, job card grid)
 
-Progress: [███████████████████░] 95% (19 of 20 plans complete across all phases)
+Progress: [████████████████████] 100% (20 of 20 plans complete across all phases)
 
 ## Performance Metrics
 
@@ -31,8 +31,8 @@ Progress: [███████████████████░] 95% (19
 - Average duration: 3.1 min
 
 **v4.0 Velocity:**
-- Total plans completed: 6
-- Average duration: 2.5 min
+- Total plans completed: 7
+- Average duration: 2.6 min
 
 ## Accumulated Context
 
@@ -59,6 +59,10 @@ Recent decisions affecting v4.0:
 - v4.0: Full-width layout removes 900px centered container
 - v4.0: Login tagline "Fresh variations for your video ads, instantly."
 - v4.0: CSS-class-first architecture (minimal inline styles)
+- v4.0: Drop zone collapses to compact bar after file selection
+- v4.0: Job card grid with 320px minimum width, responsive columns
+- v4.0: Filenames as primary visual element (--font-size-md, --font-weight-bold)
+- v4.0: Source badges subtle (10px, opacity 0.7)
 
 ### Pending Todos
 
@@ -71,5 +75,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-10
-Stopped at: Completed 18-01-PLAN.md (Phase 18 complete)
+Stopped at: Completed 18-02-PLAN.md (Phase 18 complete, all 20 plans done)
 Resume file: None
