@@ -40,12 +40,11 @@ export function renderJobList(params) {
 
   const jobListContainer = document.createElement('div');
   jobListContainer.id = 'job-list-container';
-  jobListContainer.className = 'job-list';
+  jobListContainer.className = 'job-grid';
 
   const emptyState = document.createElement('div');
   emptyState.id = 'empty-state';
   emptyState.className = 'empty-state';
-  // TODO: migrate to CSS class
   emptyState.style.display = 'none';
   emptyState.textContent = 'No jobs yet. Upload some videos to get started!';
 
