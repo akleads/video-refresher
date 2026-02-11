@@ -805,3 +805,87 @@ body {
     width: 100%;
   }
 }
+
+/* Job card thumbnail styles */
+.job-card-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.job-card-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-bg-elevated);
+}
+
+.job-card-thumb-placeholder {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.job-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Notification toggle styles */
+.notif-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  user-select: none;
+}
+
+.notif-toggle.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notif-toggle input[type="checkbox"] {
+  display: none;
+}
+
+.notif-toggle-switch {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  background: var(--color-gray-700);
+  border-radius: var(--radius-full);
+  transition: background 0.2s;
+}
+
+.notif-toggle-switch::before {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-gray-400);
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+
+.notif-toggle input[type="checkbox"]:checked + .notif-toggle-switch {
+  background: var(--color-accent);
+}
+
+.notif-toggle input[type="checkbox"]:checked + .notif-toggle-switch::before {
+  background: white;
+  left: 14px;
+}
