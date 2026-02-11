@@ -1,12 +1,17 @@
 // Job list view with polling refresh
 
-import { apiCall } from '../lib/api.js';
+import { apiCall, API_BASE } from '../lib/api.js';
 import { timeAgo } from '../lib/utils.js';
+import { fireJobCompleteNotification } from '../lib/notifications.js';
 
 // Polling state (module-level)
 let pollTimer = null;
 const POLL_INTERVAL = 5000; // Fixed 5s interval
 let isPolling = false;
+
+// Notification tracking (module-level)
+const notifiedJobs = new Set();
+const previousJobStatuses = new Map();
 
 // Page Visibility API - pause polling when tab hidden
 document.addEventListener('visibilitychange', () => {
@@ -69,6 +74,28 @@ async function fetchAndRenderJobs() {
       const dateA = new Date(a.createdAt.endsWith('Z') ? a.createdAt : a.createdAt + 'Z');
       const dateB = new Date(b.createdAt.endsWith('Z') ? b.createdAt : b.createdAt + 'Z');
       return dateB - dateA;
+    });
+
+    // Detect newly completed server jobs for notifications
+    const isFirstLoad = previousJobStatuses.size === 0;
+
+    if (!isFirstLoad) {
+      jobs.forEach(job => {
+        const isServerJob = job.source === 'server';
+        const isNowCompleted = job.status === 'completed';
+        const wasNotCompletedBefore = previousJobStatuses.get(job.id) !== 'completed';
+        const notYetNotified = !notifiedJobs.has(job.id);
+
+        if (isServerJob && isNowCompleted && wasNotCompletedBefore && notYetNotified) {
+          fireJobCompleteNotification(job.id);
+          notifiedJobs.add(job.id);
+        }
+      });
+    }
+
+    // Update previous statuses
+    jobs.forEach(job => {
+      previousJobStatuses.set(job.id, job.status);
     });
 
     renderJobsList(jobs);
@@ -138,6 +165,31 @@ function renderJobsList(jobs) {
     if (isExpired) {
       jobCard.classList.add('job-card-expired');
     }
+
+    // Create card body wrapper for thumbnail + content
+    const cardBody = document.createElement('div');
+    cardBody.className = 'job-card-body';
+
+    // Thumbnail or placeholder
+    let thumbnail;
+    if (job.thumbnailUrl) {
+      thumbnail = document.createElement('img');
+      thumbnail.className = 'job-card-thumb';
+      thumbnail.src = API_BASE + job.thumbnailUrl;
+      thumbnail.alt = (job.fileNames && job.fileNames.length > 0) ? job.fileNames[0] : 'Video thumbnail';
+      thumbnail.loading = 'lazy';
+    } else {
+      thumbnail = document.createElement('div');
+      thumbnail.className = 'job-card-thumb-placeholder';
+      // Simple film/video icon SVG
+      thumbnail.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>';
+    }
+
+    cardBody.appendChild(thumbnail);
+
+    // Content wrapper for header + meta
+    const content = document.createElement('div');
+    content.className = 'job-card-content';
 
     // Header with filename title and status badge
     const header = document.createElement('div');
@@ -260,9 +312,11 @@ function renderJobsList(jobs) {
       actions.appendChild(expiredText);
     }
 
-    // Assemble card
-    jobCard.appendChild(header);
-    jobCard.appendChild(meta);
+    // Assemble card structure
+    content.appendChild(header);
+    content.appendChild(meta);
+    cardBody.appendChild(content);
+    jobCard.appendChild(cardBody);
     jobCard.appendChild(actions);
 
     container.appendChild(jobCard);
@@ -316,4 +370,6 @@ export function cleanupJobList() {
     clearTimeout(pollTimer);
     pollTimer = null;
   }
+  notifiedJobs.clear();
+  previousJobStatuses.clear();
 }

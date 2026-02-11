@@ -7,6 +7,7 @@ import { renderUpload } from './views/upload.js';
 import { renderJobDetail, cleanupJobDetail } from './views/job-detail.js';
 import { renderJobList, cleanupJobList } from './views/job-list.js';
 import { renderDeviceProgress, cleanupDeviceProgress, isDeviceProcessing } from './views/device-progress.js';
+import { isNotificationSupported, isNotificationsEnabled, setNotificationsEnabled } from './lib/notifications.js';
 
 const router = new Router();
 
@@ -82,7 +83,7 @@ router.add('jobs', (params) => showView('jobs', renderJobList)(params));
 router.add('job/:id', (params) => showView('job-detail', () => renderJobDetail(params.id))(params));
 router.add('device-progress', (params) => showView('device-progress', renderDeviceProgress)(params));
 
-// Wire up logout button
+// Wire up logout button and notification toggle
 document.addEventListener('DOMContentLoaded', () => {
   const logoutBtn = document.getElementById('logoutBtn');
   if (logoutBtn) {
@@ -90,6 +91,44 @@ document.addEventListener('DOMContentLoaded', () => {
       clearToken();
       window.location.hash = '#login';
     });
+  }
+
+  // Create notification toggle if supported
+  if (isNotificationSupported()) {
+    const nav = document.getElementById('nav');
+    const navTabs = nav.querySelector('.nav-tabs');
+
+    // Create toggle container
+    const toggleLabel = document.createElement('label');
+    toggleLabel.className = 'notif-toggle';
+
+    // Create checkbox
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = isNotificationsEnabled();
+
+    // Create switch visual
+    const switchVisual = document.createElement('span');
+    switchVisual.className = 'notif-toggle-switch';
+
+    // Create text label
+    const textLabel = document.createElement('span');
+    textLabel.textContent = 'Notifications';
+
+    // Assemble toggle
+    toggleLabel.appendChild(checkbox);
+    toggleLabel.appendChild(switchVisual);
+    toggleLabel.appendChild(textLabel);
+
+    // Handle toggle change
+    checkbox.addEventListener('change', async () => {
+      await setNotificationsEnabled(checkbox.checked);
+      // Update checkbox state in case permission was denied
+      checkbox.checked = isNotificationsEnabled();
+    });
+
+    // Insert toggle before logout button
+    nav.insertBefore(toggleLabel, logoutBtn);
   }
 
   // Start router

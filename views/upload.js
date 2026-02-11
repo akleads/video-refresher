@@ -4,6 +4,7 @@ import { uploadFiles } from '../lib/api.js';
 import { formatBytes } from '../lib/utils.js';
 import { supportsClientProcessing } from '../lib/capability-detection.js';
 import { setDeviceProcessingData } from './device-progress.js';
+import { requestPermissionIfNeeded } from '../lib/notifications.js';
 
 // Module-level state - reset on each render
 let selectedFiles = [];
@@ -278,7 +279,10 @@ export function renderUpload(params) {
       return;
     }
 
-    // Server processing path (existing code)
+    // Server processing path
+    // Request notification permission on first server job submission
+    await requestPermissionIfNeeded();
+
     submitBtn.textContent = 'Uploading...';
 
     // Show progress section
