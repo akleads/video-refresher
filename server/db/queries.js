@@ -138,6 +138,11 @@ export function createJobQueries(db) {
     insertDeviceJobFile: db.prepare(`
       INSERT INTO job_files (id, job_id, original_name, upload_path, file_size, status, completed_variations)
       VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+
+    // Thumbnail update
+    updateJobThumbnail: db.prepare(`
+      UPDATE jobs SET thumbnail_path = ? WHERE id = ?
     `)
   };
 }

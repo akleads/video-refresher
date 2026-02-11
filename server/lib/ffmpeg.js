@@ -47,6 +47,41 @@ export async function getVideoDuration(filePath) {
 }
 
 /**
+ * Extract a thumbnail frame from a video as WebP.
+ * @param {string} inputPath - Input video path
+ * @param {string} outputPath - Output thumbnail path (WebP)
+ * @returns {Promise<boolean>} True on success, false on failure (best-effort)
+ */
+export async function extractThumbnail(inputPath, outputPath) {
+  return new Promise((resolve) => {
+    const ffmpegThumb = spawn('ffmpeg', [
+      '-i', inputPath,
+      '-ss', '2',
+      '-vframes', '1',
+      '-vf', 'scale=128:-1',
+      '-q:v', '80',
+      '-f', 'webp',
+      '-y',
+      outputPath
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+
+    ffmpegThumb.on('close', (code) => {
+      if (code === 0) {
+        resolve(true);
+      } else {
+        console.warn(`Thumbnail extraction failed with code ${code} for ${inputPath}`);
+        resolve(false);
+      }
+    });
+
+    ffmpegThumb.on('error', (err) => {
+      console.warn(`Thumbnail extraction spawn error for ${inputPath}:`, err.message);
+      resolve(false);
+    });
+  });
+}
+
+/**
  * Spawn FFmpeg with progress parsing.
  * @param {string} inputPath - Input video path
  * @param {string} outputPath - Output video path

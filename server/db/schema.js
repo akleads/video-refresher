@@ -49,6 +49,7 @@ export function migrateSchema(db) {
     { table: 'job_files', name: 'updated_at', sql: "ALTER TABLE job_files ADD COLUMN updated_at TEXT NOT NULL DEFAULT (datetime('now'))" },
     { table: 'jobs', name: 'cancelled_at', sql: "ALTER TABLE jobs ADD COLUMN cancelled_at TEXT" },
     { table: 'jobs', name: 'source', sql: "ALTER TABLE jobs ADD COLUMN source TEXT NOT NULL DEFAULT 'server'" },
+    { table: 'jobs', name: 'thumbnail_path', sql: "ALTER TABLE jobs ADD COLUMN thumbnail_path TEXT" },
   ];
 
   for (const col of columns) {
