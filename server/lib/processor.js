@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnFFmpeg, getVideoDuration } from './ffmpeg.js';
+import { spawnFFmpeg, getVideoDuration, extractThumbnail } from './ffmpeg.js';
 import { generateUniqueEffects, buildFilterString } from './effects.js';
 import { generateId } from './id.js';
 import { registerProcess, unregisterProcess } from './cancel.js';
@@ -198,12 +198,28 @@ export async function processJob(job, db, queries, outputDir) {
     }
   }
 
-  // 5. Clean up partial files if cancelled
+  // 5. Generate thumbnail from first source video (before upload cleanup)
+  if (!cancelled && files.length > 0) {
+    try {
+      const firstFile = files[0];
+      const jobOutputDir = path.join(outputDir, job.id);
+      const thumbnailPath = path.join(jobOutputDir, 'thumb.webp');
+      const success = await extractThumbnail(firstFile.upload_path, thumbnailPath);
+      if (success) {
+        queries.updateJobThumbnail.run(thumbnailPath, job.id);
+      }
+    } catch (err) {
+      console.warn(`Thumbnail generation failed for job ${job.id}:`, err.message);
+      // Don't fail the job - thumbnail is non-critical
+    }
+  }
+
+  // 6. Clean up partial files if cancelled
   if (cancelled) {
     cleanupPartialFiles(job.id, queries, outputDir);
   }
 
-  // 6. Mark job as completed or failed (only if not already cancelled)
+  // 7. Mark job as completed or failed (only if not already cancelled)
   const currentJob = queries.getJob.get(job.id);
   if (currentJob.status !== 'cancelled') {
     if (allSucceeded) {
@@ -221,7 +237,7 @@ export async function processJob(job, db, queries, outputDir) {
     }
   }
 
-  // 7. Clean up upload source files (best-effort)
+  // 8. Clean up upload source files (best-effort)
   for (const file of files) {
     try {
       fs.unlinkSync(file.upload_path);

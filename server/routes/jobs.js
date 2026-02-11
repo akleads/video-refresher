@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { upload, deviceUpload } from '../middleware/upload.js';
 import { generateId } from '../lib/id.js';
 import { cancelJobProcesses } from '../lib/cancel.js';
+import { extractThumbnail } from '../lib/ffmpeg.js';
 import archiver from 'archiver';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -121,6 +122,20 @@ export function createJobsRouter(db, queries, outputDir) {
         }
       })();
 
+      // Generate thumbnail from first result file
+      try {
+        const firstResultFile = req.files[0];
+        const firstResultPath = path.join(jobOutputDir, firstResultFile.filename || path.basename(firstResultFile.path));
+        const thumbnailPath = path.join(jobOutputDir, 'thumb.webp');
+        const success = await extractThumbnail(firstResultPath, thumbnailPath);
+        if (success) {
+          queries.updateJobThumbnail.run(thumbnailPath, jobId);
+        }
+      } catch (thumbErr) {
+        console.warn(`Device upload thumbnail generation failed for job ${jobId}:`, thumbErr.message);
+        // Don't fail the upload - thumbnail is non-critical
+      }
+
       res.status(201).json({
         jobId,
         status: 'completed',
@@ -169,6 +184,7 @@ export function createJobsRouter(db, queries, outputDir) {
       totalVideos: job.total_videos,
       totalVariations: job.total_variations,
       overallProgress,
+      thumbnailUrl: job.thumbnail_path ? `/api/jobs/${job.id}/thumbnail` : null,
       files: files.map(f => ({
         id: f.id,
         name: f.original_name,
@@ -195,6 +211,7 @@ export function createJobsRouter(db, queries, outputDir) {
       totalVideos: job.total_videos,
       totalVariations: job.total_variations,
       source: job.source || 'server',
+      thumbnailUrl: job.thumbnail_path ? `/api/jobs/${job.id}/thumbnail` : null,
       fileNames: job.file_names ? job.file_names.split(',') : [],
       createdAt: job.created_at
     })));
@@ -244,6 +261,25 @@ export function createJobsRouter(db, queries, outputDir) {
       totalVariations: finalJob.total_variations,
       cancelledAt: finalJob.cancelled_at
     });
+  });
+
+  // GET /:id/thumbnail - Serve thumbnail image
+  router.get('/:id/thumbnail', requireAuth, (req, res) => {
+    const job = queries.getJob.get(req.params.id);
+
+    // Check job exists and has a thumbnail
+    if (!job || !job.thumbnail_path) {
+      return res.status(404).json({ error: 'Thumbnail not found' });
+    }
+
+    // Check file exists on disk
+    if (!fs.existsSync(job.thumbnail_path)) {
+      return res.status(404).json({ error: 'Thumbnail file missing' });
+    }
+
+    // Set content type and stream the file
+    res.setHeader('Content-Type', 'image/webp');
+    fs.createReadStream(job.thumbnail_path).pipe(res);
   });
 
   // GET /:id/download - Download job outputs as ZIP
