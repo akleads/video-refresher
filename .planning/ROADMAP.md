@@ -108,8 +108,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 18-01-PLAN.md -- Spacing scale, full-width layout, and branded login page
-- [ ] 18-02-PLAN.md -- Drop zone redesign with 3 states and job card grid refinement
+- [x] 18-01-PLAN.md — Spacing scale, full-width layout, and branded login page
+- [x] 18-02-PLAN.md — Drop zone redesign with 3 states and job card grid refinement
 
 #### Phase 19: Enhanced Job Cards
 **Goal**: Job cards display video thumbnails and browser notifications alert users when jobs complete
@@ -143,5 +143,5 @@ Plans:
 | 15. Format Support | v4.0 | 1/1 | Complete | 2026-02-10 |
 | 16. Device Job History Upload | v4.0 | 2/2 | Complete | 2026-02-10 |
 | 17. Unified History Display | v4.0 | 1/1 | Complete | 2026-02-10 |
-| 18. Visual Polish | v4.0 | 0/0 | Not started | - |
+| 18. Visual Polish | v4.0 | 2/2 | Complete | 2026-02-10 |
 | 19. Enhanced Job Cards | v4.0 | 0/0 | Not started | - |

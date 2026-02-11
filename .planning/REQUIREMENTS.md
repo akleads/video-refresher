@@ -28,9 +28,9 @@ Requirements for v4.0 Polish & Format Support. Each maps to roadmap phases.
 ### Visual Polish
 
 - [ ] **UI-01**: Colors, spacing, and typography values extracted into CSS custom properties
-- [ ] **UI-02**: Improved spacing and visual hierarchy across all views
-- [ ] **UI-03**: Upload drop zone redesigned with better visual feedback during drag interactions
-- [ ] **UI-04**: Job card styling refined with better spacing and cleaner design
+- [x] **UI-02**: Improved spacing and visual hierarchy across all views
+- [x] **UI-03**: Upload drop zone redesigned with better visual feedback during drag interactions
+- [x] **UI-04**: Job card styling refined with better spacing and cleaner design
 
 ## Future Requirements
 
