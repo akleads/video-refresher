@@ -22,8 +22,8 @@ Requirements for v4.0 Polish & Format Support. Each maps to roadmap phases.
 
 - [ ] **UX-01**: Job cards display original source video filenames instead of generic "Job N" labels
 - [ ] **UX-02**: Job card layout properly aligns video count, variation count, and timestamp
-- [ ] **UX-03**: Job cards display video preview thumbnails for quick identification
-- [ ] **UX-04**: User receives browser notification when a server job completes (with permission prompt)
+- [x] **UX-03**: Job cards display video preview thumbnails for quick identification
+- [x] **UX-04**: User receives browser notification when a server job completes (with permission prompt)
 
 ### Visual Polish
 

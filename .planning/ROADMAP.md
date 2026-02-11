@@ -124,8 +124,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 19-01-PLAN.md -- Server-side thumbnail generation, serving endpoint, schema migration
-- [ ] 19-02-PLAN.md -- Frontend thumbnail display in job cards, browser notification system with toggle
+- [x] 19-01-PLAN.md — Server-side thumbnail generation, serving endpoint, schema migration
+- [x] 19-02-PLAN.md — Frontend thumbnail display in job cards, browser notification system with toggle
 
 ## Progress
 
@@ -145,4 +145,4 @@ Plans:
 | 16. Device Job History Upload | v4.0 | 2/2 | Complete | 2026-02-10 |
 | 17. Unified History Display | v4.0 | 1/1 | Complete | 2026-02-10 |
 | 18. Visual Polish | v4.0 | 2/2 | Complete | 2026-02-10 |
-| 19. Enhanced Job Cards | v4.0 | 0/0 | Not started | - |
+| 19. Enhanced Job Cards | v4.0 | 2/2 | Complete | 2026-02-11 |

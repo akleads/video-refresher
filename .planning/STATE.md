@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-02-09)
 
 **Core value:** Upload video creatives, get multiple unique variations ready for ad platform rotation -- fast, without waiting at the screen.
-**Current focus:** Phase 18 complete, phase 19 next (enhanced job cards)
+**Current focus:** Phase 19 complete — v4.0 milestone complete
 
 ## Current Position
 
