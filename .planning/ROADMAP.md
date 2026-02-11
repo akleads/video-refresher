@@ -121,10 +121,11 @@ Plans:
   3. User receives browser notification when server job completes (if permission granted)
   4. Notification permission prompt shown on first job submission
   5. Notifications work even when tab is in background or closed
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 19-01: TBD
+- [ ] 19-01-PLAN.md -- Server-side thumbnail generation, serving endpoint, schema migration
+- [ ] 19-02-PLAN.md -- Frontend thumbnail display in job cards, browser notification system with toggle
 
 ## Progress
 
