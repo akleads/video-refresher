@@ -47,19 +47,20 @@ export function renderUpload(params) {
 
   // Main wrapper
   const wrapper = document.createElement('div');
-  // TODO: migrate to CSS class
-  wrapper.style.cssText = 'max-width: 800px; margin: var(--spacing-xl) auto; padding: var(--spacing-base);';
+  wrapper.className = 'upload-wrapper';
+  wrapper.style.maxWidth = '800px';
+  wrapper.style.margin = 'var(--spacing-xl) auto';
 
   // Page title
   const title = document.createElement('h1');
+  title.className = 'upload-title';
   title.textContent = 'Upload Videos';
   wrapper.appendChild(title);
 
   // Instructions
   const instructions = document.createElement('p');
+  instructions.className = 'upload-instructions';
   instructions.textContent = 'Upload one or more MP4 or MOV files to create variations.';
-  // TODO: migrate to CSS class
-  instructions.style.cssText = 'color: var(--color-text-secondary); margin-bottom: var(--spacing-xl);';
   wrapper.appendChild(instructions);
 
   // Hidden file input
@@ -77,13 +78,11 @@ export function renderUpload(params) {
 
   // Processing mode radio buttons
   const modeSection = document.createElement('div');
-  // TODO: migrate to CSS class
-  modeSection.style.cssText = 'display: flex; align-items: center; gap: var(--spacing-lg); margin-bottom: var(--spacing-lg);';
+  modeSection.className = 'upload-mode-section';
 
   // Server radio wrapper
   const serverWrapper = document.createElement('div');
-  // TODO: migrate to CSS class
-  serverWrapper.style.cssText = 'display: flex; align-items: center; gap: var(--spacing-sm);';
+  serverWrapper.className = 'upload-mode-option';
 
   const serverRadio = document.createElement('input');
   serverRadio.type = 'radio';
@@ -103,8 +102,7 @@ export function renderUpload(params) {
 
   // Device radio wrapper
   const deviceWrapper = document.createElement('div');
-  // TODO: migrate to CSS class
-  deviceWrapper.style.cssText = 'display: flex; align-items: center; gap: var(--spacing-sm);';
+  deviceWrapper.className = 'upload-mode-option';
 
   const deviceRadio = document.createElement('input');
   deviceRadio.type = 'radio';
@@ -128,8 +126,9 @@ export function renderUpload(params) {
 
     const unsupportedNote = document.createElement('span');
     unsupportedNote.textContent = ' (Not supported in this browser)';
-    // TODO: migrate to CSS class
-    unsupportedNote.style.cssText = 'font-size: var(--font-size-sm); color: var(--color-text-muted); font-weight: normal;';
+    unsupportedNote.style.fontSize = 'var(--font-size-sm)';
+    unsupportedNote.style.color = 'var(--color-text-muted)';
+    unsupportedNote.style.fontWeight = 'normal';
     deviceLabel.appendChild(unsupportedNote);
   }
 
@@ -148,25 +147,30 @@ export function renderUpload(params) {
     }
   });
 
-  // Insert mode section before fileInput
-  wrapper.insertBefore(modeSection, fileInput);
+  wrapper.appendChild(modeSection);
 
-  // Drag-drop zone
+  // Drop zone
   const dropZone = document.createElement('div');
   dropZone.className = 'drop-zone';
-  // TODO: migrate to CSS class
-  dropZone.style.cssText = 'border: 2px dashed var(--color-border-subtle); border-radius: var(--radius-lg); padding: var(--spacing-2xl); text-align: center; cursor: pointer; transition: background 0.2s;';
 
   const dropIcon = document.createElement('div');
-  dropIcon.textContent = '📁';
-  dropIcon.style.fontSize = 'var(--font-size-3xl)';
+  dropIcon.className = 'drop-zone-icon';
+  // Simple upload cloud SVG icon
+  dropIcon.innerHTML = '<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>';
   dropZone.appendChild(dropIcon);
 
   const dropText = document.createElement('p');
-  dropText.textContent = 'Click to select files or drag and drop videos here';
-  // TODO: migrate to CSS class
-  dropText.style.cssText = 'margin: var(--spacing-base) 0 0; font-size: var(--font-size-md); color: var(--color-text-secondary);';
+  dropText.className = 'drop-zone-text';
+  dropText.textContent = 'Drop video files here or click to browse';
   dropZone.appendChild(dropText);
+
+  const dropHint = document.createElement('p');
+  dropHint.className = 'drop-zone-hint';
+  dropHint.textContent = 'MP4 and MOV files accepted';
+  dropZone.appendChild(dropHint);
+
+  // Collapsed label (hidden initially, added when collapsed)
+  let collapsedLabel = null;
 
   // Click to open file picker
   dropZone.addEventListener('click', () => {
@@ -177,8 +181,6 @@ export function renderUpload(params) {
   dropZone.addEventListener('dragenter', (e) => {
     e.preventDefault();
     dropZone.classList.add('dragover');
-    dropZone.style.background = 'var(--color-bg-hover)';
-    dropZone.style.borderColor = 'var(--color-accent)';
   });
 
   dropZone.addEventListener('dragover', (e) => {
@@ -186,21 +188,18 @@ export function renderUpload(params) {
   });
 
   dropZone.addEventListener('dragleave', (e) => {
+    // Only remove dragover if leaving the drop zone, not entering a child
     if (e.target === dropZone) {
       dropZone.classList.remove('dragover');
-      dropZone.style.background = '';
-      dropZone.style.borderColor = 'var(--color-border-subtle)';
     }
   });
 
   dropZone.addEventListener('drop', (e) => {
     e.preventDefault();
     dropZone.classList.remove('dragover');
-    dropZone.style.background = '';
-    dropZone.style.borderColor = 'var(--color-border-subtle)';
 
     const files = Array.from(e.dataTransfer.files);
-    addFiles(files, fileListContainer, warningDiv, submitBtn);
+    addFiles(files, fileListContainer, warningDiv, submitBtn, dropZone, collapsedLabel);
   });
 
   wrapper.appendChild(dropZone);
@@ -208,27 +207,23 @@ export function renderUpload(params) {
   // File input change handler
   fileInput.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
-    addFiles(files, fileListContainer, warningDiv, submitBtn);
+    addFiles(files, fileListContainer, warningDiv, submitBtn, dropZone, collapsedLabel);
     fileInput.value = ''; // Reset so same file can be added again
   });
 
   // Warning div for non-MP4 files or large files
   const warningDiv = document.createElement('div');
-  // TODO: migrate to CSS class
-  warningDiv.style.cssText = 'background: var(--color-warning-bg); color: var(--color-warning-text); padding: var(--spacing-base); border-radius: var(--radius-sm); margin-top: var(--spacing-base); display: none;';
+  warningDiv.className = 'upload-warning';
   wrapper.appendChild(warningDiv);
 
   // File list container
   const fileListContainer = document.createElement('div');
-  fileListContainer.className = 'file-list';
-  // TODO: migrate to CSS class
-  fileListContainer.style.cssText = 'margin-top: var(--spacing-xl);';
+  fileListContainer.className = 'upload-file-list';
   wrapper.appendChild(fileListContainer);
 
   // Variation count input section
   const variationSection = document.createElement('div');
-  // TODO: migrate to CSS class
-  variationSection.style.cssText = 'margin-top: var(--spacing-xl); display: flex; align-items: center; gap: var(--spacing-base);';
+  variationSection.className = 'upload-variation-section';
 
   const variationLabel = document.createElement('label');
   variationLabel.textContent = 'Number of variations per video:';
@@ -240,8 +235,7 @@ export function renderUpload(params) {
   variationInput.min = '1';
   variationInput.max = '20';
   variationInput.value = '5';
-  // TODO: migrate to CSS class
-  variationInput.style.cssText = 'width: 80px; padding: var(--spacing-sm); font-size: var(--font-size-base); border: 1px solid var(--color-input-border); border-radius: var(--radius-sm); background: var(--color-input-bg); color: var(--color-input-text);';
+  variationInput.className = 'upload-variation-input';
   variationSection.appendChild(variationInput);
 
   const variationNote = document.createElement('span');
@@ -254,10 +248,9 @@ export function renderUpload(params) {
   // Submit button
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
+  submitBtn.className = 'upload-submit';
   submitBtn.textContent = 'Upload and Process';
   submitBtn.disabled = true;
-  // TODO: migrate to CSS class
-  submitBtn.style.cssText = 'margin-top: var(--spacing-xl); padding: var(--spacing-base) var(--spacing-xl); font-size: var(--font-size-md); background: var(--color-gray-600); color: var(--color-gray-50); border: none; border-radius: var(--radius-sm); cursor: not-allowed; width: 100%;';
 
   submitBtn.addEventListener('click', async () => {
     if (selectedFiles.length === 0) return;
@@ -272,8 +265,7 @@ export function renderUpload(params) {
 
     // Disable submit button and radio buttons
     submitBtn.disabled = true;
-    submitBtn.style.background = 'var(--color-gray-600)';
-    submitBtn.style.cursor = 'not-allowed';
+    submitBtn.classList.remove('active');
     serverRadio.disabled = true;
     deviceRadio.disabled = true;
 
@@ -313,8 +305,7 @@ export function renderUpload(params) {
     } catch (err) {
       // Re-enable button and radio buttons
       submitBtn.disabled = false;
-      submitBtn.style.background = 'var(--color-accent)';
-      submitBtn.style.cursor = 'pointer';
+      submitBtn.classList.add('active');
       submitBtn.textContent = 'Upload and Process';
 
       serverRadio.disabled = false;
@@ -334,28 +325,23 @@ export function renderUpload(params) {
 
   // Upload progress section (hidden by default)
   const progressSection = document.createElement('div');
-  // TODO: migrate to CSS class
-  progressSection.style.cssText = 'margin-top: var(--spacing-base); display: none;';
+  progressSection.className = 'upload-progress';
 
   const progressLabel = document.createElement('div');
+  progressLabel.className = 'upload-progress-label';
   progressLabel.textContent = 'Upload progress:';
-  // TODO: migrate to CSS class
-  progressLabel.style.cssText = 'margin-bottom: var(--spacing-sm); font-weight: var(--font-weight-bold);';
   progressSection.appendChild(progressLabel);
 
   const progressBarContainer = document.createElement('div');
-  // TODO: migrate to CSS class
-  progressBarContainer.style.cssText = 'width: 100%; height: 30px; background: var(--color-gray-700); border-radius: var(--radius-sm); overflow: hidden; position: relative;';
+  progressBarContainer.className = 'upload-progress-track';
 
   const progressBar = document.createElement('div');
-  // TODO: migrate to CSS class
-  progressBar.style.cssText = 'height: 100%; background: var(--color-accent); width: 0%; transition: width 0.3s;';
+  progressBar.className = 'upload-progress-fill';
   progressBarContainer.appendChild(progressBar);
 
   const progressText = document.createElement('div');
+  progressText.className = 'upload-progress-text';
   progressText.textContent = '0%';
-  // TODO: migrate to CSS class
-  progressText.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: var(--font-weight-bold); color: var(--color-text-primary);';
   progressBarContainer.appendChild(progressText);
 
   progressSection.appendChild(progressBarContainer);
@@ -364,13 +350,13 @@ export function renderUpload(params) {
   container.appendChild(wrapper);
 
   // Render initial file list (empty)
-  renderFileList(fileListContainer, submitBtn);
+  renderFileList(fileListContainer, submitBtn, dropZone, collapsedLabel);
 }
 
 /**
  * Add files to selection
  */
-function addFiles(files, fileListContainer, warningDiv, submitBtn) {
+function addFiles(files, fileListContainer, warningDiv, submitBtn, dropZone, collapsedLabel) {
   const validFiles = [];
   const rejectedFiles = [];
   const largeFiles = [];
@@ -401,81 +387,88 @@ function addFiles(files, fileListContainer, warningDiv, submitBtn) {
   if (warnings.length > 0) {
     warningDiv.textContent = warnings.join(' ');
     warningDiv.style.display = 'block';
-    warningDiv.style.background = 'var(--color-warning-bg)';
-    warningDiv.style.color = 'var(--color-warning-text)';
   } else {
     warningDiv.style.display = 'none';
   }
 
-  // Re-render file list
-  renderFileList(fileListContainer, submitBtn);
+  // Re-render file list and update drop zone state
+  renderFileList(fileListContainer, submitBtn, dropZone, collapsedLabel);
 }
 
 /**
  * Render file list
  */
-function renderFileList(container, submitBtn) {
+function renderFileList(container, submitBtn, dropZone, collapsedLabel) {
   while (container.firstChild) {
     container.removeChild(container.firstChild);
   }
 
   if (selectedFiles.length === 0) {
+    // No files: disable submit, restore idle drop zone
     submitBtn.disabled = true;
-    submitBtn.style.background = 'var(--color-gray-600)';
-    submitBtn.style.cursor = 'not-allowed';
+    submitBtn.classList.remove('active');
+
+    // Remove collapsed state
+    dropZone.classList.remove('collapsed');
+    if (collapsedLabel && collapsedLabel.parentNode) {
+      collapsedLabel.parentNode.removeChild(collapsedLabel);
+    }
     return;
   }
 
-  // Enable submit button
+  // Files selected: enable submit, collapse drop zone
   submitBtn.disabled = false;
-  submitBtn.style.background = 'var(--color-accent)';
-  submitBtn.style.cursor = 'pointer';
+  submitBtn.classList.add('active');
+
+  // Add collapsed state
+  if (!dropZone.classList.contains('collapsed')) {
+    dropZone.classList.add('collapsed');
+
+    // Create collapsed label if it doesn't exist
+    if (!collapsedLabel) {
+      collapsedLabel = document.createElement('span');
+      collapsedLabel.className = 'drop-zone-collapsed-label';
+      collapsedLabel.textContent = 'Add more files';
+    }
+
+    // Ensure collapsed label is in the drop zone
+    if (!collapsedLabel.parentNode) {
+      dropZone.appendChild(collapsedLabel);
+    }
+  }
 
   const heading = document.createElement('h3');
   heading.textContent = 'Selected Files';
   container.appendChild(heading);
 
   const fileList = document.createElement('div');
-  // TODO: migrate to CSS class
-  fileList.style.cssText = 'border: 1px solid var(--color-border); border-radius: var(--radius-sm); overflow: hidden;';
+  fileList.className = 'upload-file-list-container';
 
   selectedFiles.forEach((file, index) => {
     const fileRow = document.createElement('div');
-    // TODO: migrate to CSS class
-    fileRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-base); border-bottom: 1px solid var(--color-border);';
-    if (index === selectedFiles.length - 1) {
-      fileRow.style.borderBottom = 'none';
-    }
+    fileRow.className = 'upload-file-row';
 
     const fileInfo = document.createElement('div');
     fileInfo.style.flex = '1';
 
     const fileName = document.createElement('div');
+    fileName.className = 'upload-file-name';
     fileName.textContent = file.name;
-    fileName.style.fontWeight = 'var(--font-weight-bold)';
     fileInfo.appendChild(fileName);
 
     const fileSize = document.createElement('div');
+    fileSize.className = 'upload-file-size';
     fileSize.textContent = formatBytes(file.size);
-    // TODO: migrate to CSS class
-    fileSize.style.cssText = 'color: var(--color-text-secondary); font-size: var(--font-size-sm); margin-top: var(--spacing-xs);';
     fileInfo.appendChild(fileSize);
 
     fileRow.appendChild(fileInfo);
 
     const removeBtn = document.createElement('button');
+    removeBtn.className = 'upload-file-remove';
     removeBtn.textContent = 'Remove';
-    // TODO: migrate to CSS class
-    removeBtn.style.cssText = 'padding: var(--spacing-sm) var(--spacing-base); background: var(--color-red-600); color: var(--color-gray-50); border: none; border-radius: var(--radius-sm); cursor: pointer;';
-    removeBtn.addEventListener('mouseenter', () => {
-      removeBtn.style.background = 'var(--color-red-700)';
-    });
-    removeBtn.addEventListener('mouseleave', () => {
-      removeBtn.style.background = 'var(--color-red-600)';
-    });
     removeBtn.addEventListener('click', () => {
       selectedFiles.splice(index, 1);
-      renderFileList(container, submitBtn);
+      renderFileList(container, submitBtn, dropZone, collapsedLabel);
     });
 
     fileRow.appendChild(removeBtn);
@@ -487,8 +480,7 @@ function renderFileList(container, submitBtn) {
   // Total size
   const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
   const totalDiv = document.createElement('div');
-  // TODO: migrate to CSS class
-  totalDiv.style.cssText = 'margin-top: var(--spacing-base); font-weight: var(--font-weight-bold); text-align: right;';
+  totalDiv.className = 'upload-total';
   totalDiv.textContent = `Total: ${selectedFiles.length} file(s), ${formatBytes(totalSize)}`;
   container.appendChild(totalDiv);
 }
