@@ -77,3 +77,32 @@
 
 ---
 
+
+## v4.0 Polish & Format Support (Shipped: 2026-02-11)
+
+**Delivered:** MOV input support, unified device/server job history, complete CSS design system overhaul, visual polish across all views, video thumbnails in job cards, and browser notifications for completed jobs.
+
+**Phases completed:** 14-19 (10 plans total)
+
+**Key accomplishments:**
+- CSS custom properties foundation with 76 design tokens, dark-mode grayscale palette, and bright blue accent
+- MOV file support across frontend, server, and device processing (output always MP4)
+- Device-processed results auto-upload to server with progress tracking, retry, and database persistence
+- Unified job history displaying both device and server jobs with source filenames, badges, and truncation
+- Visual polish: strict spacing scale, full-width layout, branded login page, 3-state drop zone, responsive job card grid
+- Server-side WebP thumbnail generation at 128px width, displayed in job cards with placeholder fallback
+- Browser notifications for completed server jobs with permission prompt, in-app toggle, and background-only firing
+- All 13 requirements shipped, zero dropped
+
+**Stats:**
+- 49 files changed (+6,061 / -311 lines)
+- 5,099 lines of JavaScript (total codebase, up from 4,428)
+- 6 phases, 10 plans
+- 2 days from milestone start to ship (2026-02-09 → 2026-02-11)
+
+**Git range:** `4a0f79d` → `33cafa6`
+
+**What's next:** Project feature-complete for v4.0. Future candidates: SSE real-time progress, retry failed videos, resumable uploads, metadata manifest in ZIP, re-process from history.
+
+---
+

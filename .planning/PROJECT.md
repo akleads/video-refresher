@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A video variation generator for ad creative rotation. Upload MP4 or MOV videos, choose to process on-device (FFmpeg.wasm) or send to server (native FFmpeg on Fly.io), specify how many variations you need, and get uniquely "refreshed" MP4 versions with random visual effects. Small team tool with shared password access, temporary server result storage (3GB / 24h), and single ZIP download for all outputs.
+A video variation generator for ad creative rotation. Upload MP4 or MOV videos, choose to process on-device (FFmpeg.wasm) or send to server (native FFmpeg on Fly.io), specify how many variations you need, and get uniquely "refreshed" MP4 versions with random visual effects. Small team tool with shared password access, temporary server result storage (3GB / 24h), unified job history with thumbnails and notifications, and single ZIP download for all outputs.
 
 ## Core Value
 
@@ -38,20 +38,22 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 - ✓ Device processing with FFmpeg.wasm in browser (multi-threaded, ZIP download) — v3.0
 - ✓ COOP/COEP headers restored for SharedArrayBuffer support — v3.0
 - ✓ Cancel in-progress server jobs (kill FFmpeg, clean up files) — v3.0
+- ✓ Upload MOV video files via click or drag-and-drop — v4.0
+- ✓ MOV files validated and accepted alongside MP4, output always MP4 — v4.0
+- ✓ Device-processed results upload to server after processing — v4.0
+- ✓ Device jobs create DB records with filenames, variation count, timestamps — v4.0
+- ✓ Device jobs appear in job list alongside server jobs — v4.0
+- ✓ Job cards display original source video filenames — v4.0
+- ✓ Job card layout properly aligns counts and timestamp — v4.0
+- ✓ Job cards display video preview thumbnails — v4.0
+- ✓ Browser notifications when server jobs complete (with permission prompt and toggle) — v4.0
+- ✓ CSS custom properties foundation with dark-mode palette — v4.0
+- ✓ Improved spacing, visual hierarchy, branded login, drop zone redesign — v4.0
+- ✓ Job card grid with responsive columns and refined styling — v4.0
 
 ### Active
 
-## Current Milestone: v4.0 Polish & Format Support
-
-**Goal:** Add MOV input support, unify device/server job history, improve visual polish, and add quality-of-life features (notifications, thumbnails).
-
-**Target features:**
-- MOV input support (output always MP4)
-- Device-processed jobs upload results to server and appear in job history
-- Visual polish: better spacing, cleaner cards, improved drop zone, CSS variables
-- Job card improvements: show source filenames, fix layout/alignment
-- Browser notifications when server jobs complete
-- Video thumbnails in job history
+(No active milestone — all v4.0 requirements shipped)
 
 ### Out of Scope
 
@@ -68,6 +70,7 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 - v1.0 ran entirely client-side with FFmpeg.wasm 0.12.14 on Cloudflare Pages
 - v2.0 moved processing to server-side native FFmpeg on Fly.io (10-50x faster than wasm)
 - v3.0 restored FFmpeg.wasm as optional on-device processing alongside server mode
+- v4.0 added MOV support, unified job history, CSS design system, thumbnails, and notifications
 - Frontend is a vanilla JS SPA with hash routing, ES modules, no framework
 - Server: Express 5 + SQLite (WAL mode) + native FFmpeg via child_process.spawn
 - Docker container (node:22-slim) deployed to Fly.io with 3GB persistent volume
@@ -75,7 +78,9 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 - Cleanup daemon: 24h expiry + 85% storage eviction at 5-minute intervals
 - COOP/COEP headers on Cloudflare Pages, CORP header on Fly.io API
 - Device processing: FFmpeg.wasm 0.12.x in Web Workers, 2 concurrent workers, client-zip for download
-- 4,428 LOC JavaScript total across frontend and server
+- Server-side WebP thumbnail generation (128px width, quality 80, at 2 seconds)
+- Browser notifications via Notification API with localStorage toggle
+- 5,099 LOC JavaScript total across frontend and server
 
 ## Constraints
 
@@ -117,6 +122,14 @@ Upload video creatives, get multiple unique variations ready for ad platform rot
 | 2 fixed Web Workers for device processing (v3) | Predictable performance on typical devices without dynamic scaling complexity | ✓ Good |
 | 3-stage FFmpeg termination (v3) | stdin q -> SIGTERM -> SIGKILL gives FFmpeg best chance to clean up gracefully | ✓ Good |
 | Radio buttons for mode selection (v3) | Clear workflow choice applied on submit, not toggle with immediate effect | ✓ Good |
+| Two-layer CSS variable system (v4) | Base grayscale + semantic aliases enables consistent theming without redundancy | ✓ Good |
+| Extension-agnostic basename extraction (v4) | path.extname() handles any format; avoids hardcoded extension lists | ✓ Good |
+| Non-blocking upload after device processing (v4) | Download ZIP stays interactive while results upload in background | ✓ Good |
+| GROUP_CONCAT for filename aggregation (v4) | Single SQL query returns all filenames per job; avoids N+1 queries | ✓ Good |
+| Strict spacing scale 4-32px (v4) | Consistent visual rhythm across all views; backward-compatible aliases | ✓ Good |
+| CSS-class-first architecture (v4) | Minimal inline styles; views use className instead of cssText | ✓ Good |
+| Thumbnails at 2 seconds, 128px WebP (v4) | Avoids black intros, crisp on retina, efficient storage; best-effort (never blocks) | ✓ Good |
+| Browser notifications background-only (v4) | Avoids redundant alerts when user is already looking at the app | ✓ Good |
 
 ---
-*Last updated: 2026-02-09 after v4.0 milestone started*
+*Last updated: 2026-02-11 after v4.0 milestone completed*
